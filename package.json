@@ -1,29 +1,27 @@
 {
-  "name": "@bananapus/project-handles",
-  "version": "0.0.8",
+  "name": "@bananapus/project-handles-v6",
+  "version": "0.0.1",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Bananapus/nana-project-handles"
+    "url": "git+https://github.com/Bananapus/project-handles-v6"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "scripts": {
     "test": "forge test",
+    "test:fork": "FOUNDRY_PROFILE=CI forge test",
     "coverage": "forge coverage --match-path \"./src/*.sol\" --report lcov --report summary",
     "deploy:mainnets": "source ./.env && npx sphinx propose ./script/Deploy.s.sol --networks mainnets",
-    "deploy:testnets": "source ./.env && npx sphinx propose ./script/Deploy.s.sol --networks testnets",
-    "artifacts": "source ./.env && npx sphinx artifacts --org-id 'ea165b21-7cdc-4d7b-be59-ecdd4c26bee4' --project-name 'nana-project-handles'",
-    "analyze": "slither . --config-file slither-ci.config.json"
+    "deploy:testnets": "source ./.env && npx sphinx propose ./script/Deploy.s.sol --networks testnets"
   },
   "dependencies": {
     "@ensdomains/ens-contracts": "^1.2.5",
-    "@openzeppelin/contracts": "^5.2.0"
+    "@openzeppelin/contracts": "^5.6.1"
   },
   "devDependencies": {
-    "@bananapus/core": "^1.0.2",
-    "@sphinx-labs/plugins": "^0.33.1"
+    "@bananapus/core-v6": "^0.0.33",
+    "@sphinx-labs/plugins": "^0.33.2"
   }
 }
-

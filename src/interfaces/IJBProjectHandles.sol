@@ -1,26 +1,57 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IJBProjects} from "@bananapus/core/src/interfaces/IJBProjects.sol";
 import {ENS} from "@ensdomains/ens-contracts/contracts/registry/ENS.sol";
-import {ITextResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/ITextResolver.sol";
 
+/// @notice Manages ENS reverse records for Juicebox projects — mapping (chainId, projectId, setter) to ENS domain
+/// handles.
 interface IJBProjectHandles {
+    //*********************************************************************//
+    // ------------------------------ events ----------------------------- //
+    //*********************************************************************//
+
+    /// @notice Emitted when ENS name parts are set for a project.
+    /// @param projectId The ID of the project whose ENS name parts were set.
+    /// @param handle The formatted ENS handle string.
+    /// @param parts The parts of the ENS name that were set.
+    /// @param caller The address that set the ENS name parts.
     event SetEnsNameParts(uint256 indexed projectId, string handle, string[] parts, address caller);
 
-    function TEXT_KEY() external view returns (string memory);
+    //*********************************************************************//
+    // ------------------------- external views -------------------------- //
+    //*********************************************************************//
+
+    /// @notice The ENS registry contract address.
+    /// @return The ENS registry.
     function ENS_REGISTRY() external view returns (ENS);
 
-    function ensNamePartsOf(
-        uint256 chainId,
-        uint256 projectId,
-        address projectOwner
-    )
-        external
-        view
-        returns (string[] memory);
+    /// @notice The parts of the stored ENS name of a project.
+    /// @param chainId The chain ID of the network on which the project ID exists.
+    /// @param projectId The ID of the project to get the ENS name of.
+    /// @param setter The address that set the requested record in this contract.
+    /// @return The parts of the ENS name of a project.
+    function ensNamePartsOf(uint256 chainId, uint256 projectId, address setter) external view returns (string[] memory);
 
-    function handleOf(uint256 chainId, uint256 projectId, address projectOwner) external view returns (string memory);
+    /// @notice Returns a project's verified handle, or the empty string if unverified.
+    /// @param chainId The chain ID of the network the project is on.
+    /// @param projectId The ID of the project to get the handle of.
+    /// @param setter The address which set the requested handle.
+    /// @return handle The project's verified handle.
+    function handleOf(uint256 chainId, uint256 projectId, address setter) external view returns (string memory handle);
 
+    /// @notice The key of the ENS text record which points back to a project.
+    /// @return The text key string.
+    function TEXT_KEY() external view returns (string memory);
+
+    //*********************************************************************//
+    // ----------------------- external transactions --------------------- //
+    //*********************************************************************//
+
+    /// @notice Point from a Juicebox project to an ENS node.
+    /// @dev Callers must provide ENS-normalized labels (lowercase, ENSIP-15). Non-canonical labels will be stored but
+    /// will fail to resolve in `handleOf`.
+    /// @param chainId The chain ID of the network the project is on.
+    /// @param projectId The ID of the project to set an ENS handle for.
+    /// @param parts The parts of the ENS domain to use as the project handle, excluding the trailing .eth.
     function setEnsNamePartsFor(uint256 chainId, uint256 projectId, string[] memory parts) external;
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.28;
 
 import {ENS} from "@ensdomains/ens-contracts/contracts/registry/ENS.sol";
 import {ITextResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profiles/ITextResolver.sol";
@@ -8,11 +8,8 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 import {IJBProjectHandles} from "./interfaces/IJBProjectHandles.sol";
 
-/// @notice `JBProjectHandles` allows Juicebox project owners to associate their project with an ENS node. If that ENS
-/// node has a matching text record which points back to the project, clients will treat that ENS node as the project's
-/// handle.
-/// @dev By convention, clients read the `juicebox` text field of the ENS node with the format `chainId:projectId`.
-/// For example, project ID #5 on Optimism mainnet would be represented by a `juicebox` text record of `10:5`.
+/// @notice Allows anyone to associate a Juicebox project with an ENS name. If that ENS node has a matching text record
+/// pointing back to the project, clients treat it as the project's verified handle.
 contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     //*********************************************************************//
     // --------------------------- custom errors ------------------------- //
@@ -37,11 +34,11 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     // --------------------- private stored properties ------------------- //
     //*********************************************************************//
 
-    /// @notice A private mapping storing ENS name parts set by different owner addresses for different projects.
+    /// @notice ENS name parts set by different addresses for different projects.
     /// @dev The `ensParts` ["jbx", "dao", "foo"] represents foo.dao.jbx.eth.
     /// @custom:param chainId The chain ID of the network the project is on.
     /// @custom:param projectId The ID of the project to get the ENS parts of.
-    /// @custom:param setter The address that set the requested `ensParts`. This should be the project's current owner.
+    /// @custom:param setter The address that set the requested `ensParts`.
     mapping(uint256 chainId => mapping(uint256 projectId => mapping(address setter => string[] ensParts))) private
         _ensNamePartsOf;
 
@@ -53,6 +50,45 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     constructor(address trustedForwarder) ERC2771Context(trustedForwarder) {}
 
     //*********************************************************************//
+    // ----------------------- external transactions --------------------- //
+    //*********************************************************************//
+
+    /// @notice Point from a Juicebox project to an ENS node.
+    /// @dev The `parts` ["jbx", "dao", "foo"] represents foo.dao.jbx.eth.
+    /// @dev Callers must provide ENS-normalized labels (lowercase, ENSIP-15). Non-canonical labels will be stored but
+    /// will fail to resolve in `handleOf` because `_namehash` hashes raw bytes.
+    /// @param chainId The chain ID of the network the project is on.
+    /// @param projectId The ID of the project to set an ENS handle for.
+    /// @param parts The parts of the ENS domain to use as the project handle, excluding the trailing .eth.
+    function setEnsNamePartsFor(uint256 chainId, uint256 projectId, string[] memory parts) external override {
+        // Get a reference to the number of parts are in the ENS name.
+        uint256 partsLength = parts.length;
+
+        // Make sure there are ENS name parts.
+        if (partsLength == 0) revert JBProjectHandles_NoParts();
+
+        // Make sure no provided parts are empty or contain dots.
+        for (uint256 i; i < partsLength; i++) {
+            string memory part = parts[i];
+            if (bytes(part).length == 0) {
+                revert JBProjectHandles_EmptyNamePart(parts);
+            }
+
+            // Make sure no provided parts contain a dot.
+            for (uint256 j; j < bytes(part).length; j++) {
+                if (bytes(part)[j] == ".") {
+                    revert JBProjectHandles_InvalidNamePart(part);
+                }
+            }
+        }
+
+        // Store the parts.
+        _ensNamePartsOf[chainId][projectId][_msgSender()] = parts;
+
+        emit SetEnsNameParts({projectId: projectId, handle: _formatHandle(parts), parts: parts, caller: _msgSender()});
+    }
+
+    //*********************************************************************//
     // ------------------------- external views -------------------------- //
     //*********************************************************************//
 
@@ -60,7 +96,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     /// @param chainId The chain ID of the network on which the project ID exists.
     /// @param projectId The ID of the project to get the ENS name of.
     /// @param setter The address that set the requested record in this contract.
-    /// @return The parts of the ENS name parts of a project.
+    /// @return The parts of the ENS name of a project.
     function ensNamePartsOf(
         uint256 chainId,
         uint256 projectId,
@@ -74,11 +110,11 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         return _ensNamePartsOf[chainId][projectId][setter];
     }
 
-    /// @notice Returns a project's verified handle. If the handle isn't verified, returns the empty string.
-    /// @dev The ENS record text record with the `TEXT_KEY` record containing `chainId:projectId`.
+    /// @notice Returns a project's verified handle, or the empty string if unverified.
+    /// @dev Verified means the ENS text record with `TEXT_KEY` contains `chainId:projectId`.
     /// @param chainId The chain ID of the network the project is on.
     /// @param projectId The ID of the project to get the handle of.
-    /// @param setter The address which set the requested handle. This should be the project's current owner.
+    /// @param setter The address which set the requested handle.
     /// @return handle The project's verified handle.
     function handleOf(
         uint256 chainId,
@@ -96,16 +132,16 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         // Return an empty string if not found.
         if (ensNameParts.length == 0) return "";
 
-        // Compute the hash of the handle
+        // Compute the hash of the handle.
         bytes32 hashedName = _namehash(ensNameParts);
 
-        // Get the resolver for this handle, returns address(0) if non-existing
+        // Get the resolver for this handle, returns address(0) if non-existing.
         address textResolver = ENS_REGISTRY.resolver(hashedName);
 
-        // If the handle is not a registered ENS, return empty string
+        // If the handle is not a registered ENS, return empty string.
         if (textResolver == address(0)) return "";
 
-        // Find the `projectId` that the text record of the ENS name is mapped to.
+        // Find the text record that the ENS name is mapped to.
         string memory textRecord = ITextResolver(textResolver).text(hashedName, TEXT_KEY);
 
         // Return empty string if text record from ENS name doesn't match `projectId` and `chainId`.
@@ -121,11 +157,6 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     //*********************************************************************//
     // -------------------------- internal views ------------------------- //
     //*********************************************************************//
-
-    /// @dev ERC-2771 specifies the context as being a single address (20 bytes).
-    function _contextSuffixLength() internal view virtual override returns (uint256) {
-        return super._contextSuffixLength();
-    }
 
     /// @notice Formats ENS name parts into a handle.
     /// @param ensNameParts The ENS name parts to format into a handle.
@@ -148,7 +179,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     /// @notice Returns a namehash for an ENS name.
     /// @dev See https://eips.ethereum.org/EIPS/eip-137.
     /// @param ensNameParts The parts of an ENS name to hash.
-    /// @return namehash The namehash for an ENS name parts.
+    /// @return namehash The namehash for the ENS name parts.
     function _namehash(string[] memory ensNameParts) internal pure returns (bytes32 namehash) {
         // Hash the trailing "eth" suffix.
         namehash = keccak256(abi.encodePacked(namehash, keccak256(abi.encodePacked("eth"))));
@@ -162,53 +193,15 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         }
     }
 
-    /// @notice Returns the sender, prefered to use over `msg.sender`
-    /// @return sender the sender address of this call.
+    /// @notice Returns the sender, preferred to use over `msg.sender`.
+    /// @return sender The sender address of this call.
     function _msgSender() internal view override returns (address sender) {
         return ERC2771Context._msgSender();
     }
 
-    /// @notice Returns the calldata, prefered to use over `msg.data`
-    /// @return calldata the `msg.data` of this call
+    /// @notice Returns the calldata, preferred to use over `msg.data`.
+    /// @return The `msg.data` of this call.
     function _msgData() internal view override returns (bytes calldata) {
         return ERC2771Context._msgData();
-    }
-
-    //*********************************************************************//
-    // --------------------- external transactions ----------------------- //
-    //*********************************************************************//
-
-    /// @notice Point from a Juicebox project to an ENS node.
-    /// @dev The `parts` ["jbx", "dao", "foo"] represents foo.dao.jbx.eth.
-    /// @dev The project's owner must call this function to set its ENS name parts.
-    /// @param chainId The chain ID of the network the project is on.
-    /// @param projectId The ID of the project to set an ENS handle for.
-    /// @param parts The parts of the ENS domain to use as the project handle, excluding the trailing .eth.
-    function setEnsNamePartsFor(uint256 chainId, uint256 projectId, string[] memory parts) external override {
-        // Get a reference to the number of parts are in the ENS name.
-        uint256 partsLength = parts.length;
-
-        // Make sure there are ens name parts.
-        if (partsLength == 0) revert JBProjectHandles_NoParts();
-
-        // Make sure no provided parts are empty.
-        for (uint256 i; i < partsLength; i++) {
-            string memory part = parts[i];
-            if (bytes(part).length == 0) {
-                revert JBProjectHandles_EmptyNamePart(parts);
-            }
-
-            // Make sure no provided parts contain a dot.
-            for (uint256 j; j < bytes(part).length; j++) {
-                if (bytes(part)[j] == ".") {
-                    revert JBProjectHandles_InvalidNamePart(part);
-                }
-            }
-        }
-
-        // Store the parts.
-        _ensNamePartsOf[chainId][projectId][_msgSender()] = parts;
-
-        emit SetEnsNameParts({projectId: projectId, handle: _formatHandle(parts), parts: parts, caller: _msgSender()});
     }
 }

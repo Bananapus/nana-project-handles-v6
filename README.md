@@ -1,196 +1,72 @@
-# Bananapus Project Handles
+# Project Handles V6
 
-Juicebox projects can use an ENS address as their project's "handle" in frontend clients like [juicebox.money](https://juicebox.money). To make this association, they must set their `juicebox_project` ENS name's text record to their project's ID. The `JBProjectHandles` contract manages reverse records that point from project IDs to ENS names. If the two records match, that ENS name is considered the project's handle, and is shown in frontend clients.
+Permissionless ENS handle registry for Juicebox projects. Maps `(chainId, projectId, setter)` to ENS domain handles with two-way verification.
 
-<details>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li><a href="#usage">Usage</a></li>
-  <ul>
-    <li><a href="#install">Install</a></li>
-    <li><a href="#develop">Develop</a></li>
-    <li><a href="#scripts">Scripts</a></li>
-    <li><a href="#deployments">Deployments</a></li>
-    <li><a href="#tips">Tips</a></li>
-    </ul>
-    <li><a href="#repository-layout">Repository Layout</a></li>
-    <li><a href="#description">Description</a></li>
-  <ul>
-    <li><a href="#motivation">Motivation</a></li>
-    <li><a href="#reading-handles">Reading Handles</a></li>
-    <li><a href="#text-record-and-multichain">Text Record and Multichain</a></li>
-    </ul>
-    <li><a href="#example-usage">Example Usage</a></li>
-  </ul>
-  </ol>
-</details>
+## Overview
 
-_If you're having trouble understanding this contract, take a look at the [core protocol contracts](https://github.com/Bananapus/nana-core) and the [documentation](https://docs.juicebox.money/) first. If you have questions, reach out on [Discord](https://discord.com/invite/ErQYmth4dS)._
+| Contract | Purpose |
+|----------|---------|
+| `JBProjectHandles` | Stores ENS name parts per project, verifies handles against ENS text records |
 
-## Usage
+**Mental model:** Anyone calls `setEnsNamePartsFor` to associate a project with an ENS name. Clients call `handleOf` to check if the ENS text record matches — if it does, the handle is verified.
 
-### Install
+## Key concepts
 
-How to install `nana-project-handles` in another project.
+- **Two-way verification:** The contract stores which ENS name a setter associates with a project. `handleOf` checks that the ENS name's `juicebox` text record points back to `chainId:projectId`.
+- **Permissionless:** Anyone can set name parts for any project. The storage is keyed by `_msgSender()`, so only the setter's record is affected.
+- **Mainnet-only:** Deployed on Ethereum mainnet but manages handles for projects on all EVM chains via the `chainId` parameter.
+- **ERC2771:** Supports meta-transactions via a trusted forwarder.
 
-For projects using `npm` to manage dependencies (recommended):
+## Install
 
 ```bash
-npm install @bananapus/project-handles
+npm install @bananapus/project-handles-v6
 ```
 
-For projects using `forge` to manage dependencies (not recommended):
+## Development
+
+Requires [Node.js](https://nodejs.org/) >=20.0.0 and [Foundry](https://github.com/foundry-rs/foundry).
 
 ```bash
-forge install Bananapus/nana-project-handles
+npm install && forge build
 ```
 
-If you're using `forge` to manage dependencies, add `@bananapus/project-handles/=lib/nana-project-handles/` to `remappings.txt`. You'll also need to install `nana-project-handles`' dependencies and add similar remappings for them.
+| Command | Description |
+|---------|-------------|
+| `forge build` | Compile contracts |
+| `forge test` | Run tests |
+| `forge fmt` | Format code |
+| `forge build --sizes` | Check contract sizes |
+| `forge coverage` | Generate coverage report |
 
-### Develop
+## Deployment
 
-`nana-project-handles` uses [npm](https://www.npmjs.com/) (version >=20.0.0) for package management and the [Foundry](https://github.com/foundry-rs/foundry) development toolchain for builds, tests, and deployments. To get set up, [install Node.js](https://nodejs.org/en/download) and install [Foundry](https://github.com/foundry-rs/foundry):
+Uses [Sphinx](https://github.com/sphinx-labs/sphinx) for deterministic deployment. Set up `.env` from `.example.env`, then:
 
-```bash
-curl -L https://foundry.paradigm.xyz | sh
-```
+| Command | Description |
+|---------|-------------|
+| `npm run deploy:mainnets` | Deploy to Ethereum mainnet |
+| `npm run deploy:testnets` | Deploy to Ethereum Sepolia |
 
-You can download and install dependencies with:
-
-```bash
-npm ci && forge install
-```
-
-If you run into trouble with `forge install`, try using `git submodule update --init --recursive` to ensure that nested submodules have been properly initialized.
-
-Some useful commands:
-
-| Command               | Description                                         |
-| --------------------- | --------------------------------------------------- |
-| `forge build`         | Compile the contracts and write artifacts to `out`. |
-| `forge fmt`           | Lint.                                               |
-| `forge test`          | Run the tests.                                      |
-| `forge build --sizes` | Get contract sizes.                                 |
-| `forge coverage`      | Generate a test coverage report.                    |
-| `foundryup`           | Update foundry. Run this periodically.              |
-| `forge clean`         | Remove the build artifacts and cache directories.   |
-
-To learn more, visit the [Foundry Book](https://book.getfoundry.sh/) docs.
-
-### Scripts
-
-For convenience, several utility commands are available in `package.json`.
-
-| Command             | Description                            |
-| ------------------- | -------------------------------------- |
-| `npm test`          | Run local tests.                       |
-| `npm run test:fork` | Run fork tests (for use in CI).        |
-| `npm run coverage`  | Generate an LCOV test coverage report. |
-
-### Deployments
-
-To deploy, you'll need to set up a `.env` file based on `.example.env`. Then run one of the following commands:
-
-| Command                           | Description                        |
-| --------------------------------- | ---------------------------------- |
-| `npm run deploy:ethereum-mainnet` | Deploy to Ethereum mainnet         |
-| `npm run deploy:ethereum-sepolia` | Deploy to Ethereum Sepolia testnet |
-| `npm run deploy:optimism-mainnet` | Deploy to Optimism mainnet         |
-| `npm run deploy:optimism-sepolia` | Deploy to Optimism testnet         |
-
-### Tips
-
-To view test coverage, run `npm run coverage` to generate an LCOV test report. You can use an extension like [Coverage Gutters](https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gutters) to view coverage in your editor.
-
-If you're using Nomic Foundation's [Solidity](https://marketplace.visualstudio.com/items?itemName=NomicFoundation.hardhat-solidity) extension in VSCode, you may run into LSP errors because the extension cannot find dependencies outside of `lib`. You can often fix this by running:
-
-```bash
-forge remappings >> remappings.txt
-```
-
-This makes the extension aware of default remappings.
-
-## Repository Layout
-
-The root directory contains this README, an MIT license, and config files.
-
-The important source directories are:
+## Repository layout
 
 ```
-nana-project-handles/
-├── script/
-│   └── Deploy.sol - The deployment script.
+project-handles-v6/
 ├── src/
-│   ├── JBProjectHandles.sol - The main JBProjectHandles contract.
+│   ├── JBProjectHandles.sol          — Main contract
 │   └── interfaces/
-│       └── IJBProjectHandles.sol - The project handles interface.
-└── test/
-    └── JBProjectHandles.t.sol - Unit tests.
+│       └── IJBProjectHandles.sol     — Interface
+├── test/
+│   └── JBProjectHandles.t.sol        — Unit tests
+└── script/
+    ├── Deploy.s.sol                   — Sphinx deployment
+    └── helpers/
+        └── ProjectHandlesDeploymentLib.sol — Deployment artifact reader
 ```
 
-Other directories:
+## Risks and notes
 
-```
-nana-project-handles/
-├── .github/
-│   └── workflows/ - CI/CD workflows.
-└── broadcast/ - Deployment logs.
-```
-
-## Description
-
-### Motivation
-
-Handles are easier to remember than IDs, but leaving this to clients could get messy. ENS names are often used as handles in the Ethereum ecosystem, because they can have _text records_ – arbitrary key-value text pairs which can be accessed onchain. If Juicebox frontend clients were to trust ENS text records alone as a source of truth, anyone could associate their ENS handle with any Juicebox project, and could use this to mislead others. Therefore, we need a two-way association between Juicebox projects and ENS names. The `JBProjectHandles` contract is the "reverse record" – it allows a Juicebox project's owner to associate their project with an ENS name. If an ENS name has a text record pointing to a Juicebox project, and the project points to that ENS name through the `JBProjectHandles` contract, the ENS name is the project's handle.
-
-### Reading Handles
-
-Clients can use [`JBProjectHandles.handleOf(…)`](https://github.com/Bananapus/nana-project-handles/blob/main/src/JBProjectHandles.sol#L61) to check a project's handle. The function only returns the handle if it is verified, and returns an empty string otherwise.
-
-`JBProjectHandles` is only deployed on Ethereum mainnet, but it manages handles for Juicebox projects on all EVM-compatible networks.
-
-### Text Record and Multichain
-
-The canonical ENS registry and the `JBProjectHandles` contract are only available on Ethereum mainnet, but Juicebox projects can be deployed on several EVM-compatible networks. To allow project owners to set their handles on multiple chains, the text record specifies both the chain ID and the project ID.
-
-To point an ENS name at a Juicebox project, use the name's `juicebox` text record, with the format `chainId:projectId`. For example, to point `jeff.eth` to project ID #5 on Optimism mainnet (which has chain ID 10), `jeff.eth` must have its `juicebox` text record set to `10:5`.
-
-To point a Juicebox project at an ENS name, the project's owner must call [`JBProjectHandles.setEnsNamePartsFor(...)`](https://github.com/Bananapus/nana-project-handles/blob/main/src/JBProjectHandles.sol#L113):
-
-```solidity
-/// @notice Point from a Juicebox project to an ENS node.
-/// @dev The `parts` ["jbx", "dao", "foo"] represents foo.dao.jbx.eth.
-/// @dev The project's owner must call this function to set its ENS name parts.
-/// @param chainId The chain ID of the network the project is on.
-/// @param projectId The ID of the project to set an ENS handle for.
-/// @param parts The parts of the ENS domain to use as the project handle, excluding the trailing .eth.
-function setEnsNamePartsFor(uint256 chainId, uint256 projectId, string[] memory parts) external override { … }
-```
-
-To point project #5 on Optimism mainnet back at his ENS, Jeff would have to call `JBProjectHandles.setEnsNamePartsFor(10, 5, ["jeff"])`. The same address which owns the project on Optimism must call `setEnsNamePartsFor(…)` on mainnet. If the project's owner changes, the new owner must call `setEnsNamePartsFor(…)` again.
-
-## Example Usage
-
-1. `jeff.eth` deploys project ID #5 on Optimism mainnet. He wants to set its handle as `project.jeff.eth`.
-2. To point his ENS at his Juicebox project, he calls `PublicResolver.setText(…)` on the [ENS website](https://app.ens.domains/). He sets the `juicebox` text record for `project.jeff.eth` to `10:5`.
-3. To point his project at his ENS, he calls `setEnsNamePartsFor(…)`:
-
-```solidity
-JBProjectHandles.setEnsNamePartsFor({
-  chainId: 10, // Optimism mainnet
-  projectId: 5,
-  parts: ["project", "jeff"]
-});
-```
-
-Now, frontend clients will associate his project with `project.jeff.eth`. To read the handle, a client can call `handleOf(…)`:
-
-```solidity
-JBProjectHandles.handleOf({
-  chainId: 10,
-  projectId: 5,
-  projectOwner: 0x123… // jeff.eth
-});
-```
-
-This will return `project.jeff.eth` if the handle is verified, and an empty string otherwise.
+- **Setter trust model:** `handleOf` requires the caller to pass the `setter` address. Frontends should pass the current project owner to get the "official" handle.
+- **ENS dependency:** If the ENS registry or resolver is unreachable, `handleOf` reverts or returns empty.
+- **Stale records:** If a project changes owners, the old owner's handle remains in storage but won't resolve unless the new owner re-sets it.
+- **No removal:** There is no function to delete a handle — setting new parts overwrites the old ones.

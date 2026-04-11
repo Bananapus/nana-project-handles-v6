@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.28;
 
 import {stdJson} from "forge-std/Script.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {SphinxConstants, NetworkInfo} from "@sphinx-labs/contracts/SphinxConstants.sol";
+import {SphinxConstants, NetworkInfo} from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
 
-import {JBProjectHandles} from "../../src/JBProjectHandles.sol";
+import {IJBProjectHandles} from "../../src/interfaces/IJBProjectHandles.sol";
 
 struct ProjectHandlesDeployment {
-    JBProjectHandles project_handles;
+    IJBProjectHandles projectHandles;
 }
 
 library ProjectHandlesDeploymentLib {
@@ -17,17 +17,14 @@ library ProjectHandlesDeploymentLib {
     Vm internal constant vm = Vm(VM_ADDRESS);
 
     function getDeployment(string memory path) internal returns (ProjectHandlesDeployment memory deployment) {
-        // get chainId for which we need to get the deployment.
         uint256 chainId = block.chainid;
 
-        // Deploy to get the constants.
-        // TODO: get constants without deploy.
         SphinxConstants sphinxConstants = new SphinxConstants();
         NetworkInfo[] memory networks = sphinxConstants.getNetworkInfoArray();
 
         for (uint256 _i; _i < networks.length; _i++) {
             if (networks[_i].chainId == chainId) {
-                return getDeployment(path, networks[_i].name);
+                return getDeployment({path: path, networkName: networks[_i].name});
             }
         }
 
@@ -36,25 +33,26 @@ library ProjectHandlesDeploymentLib {
 
     function getDeployment(
         string memory path,
-        string memory network_name
+        string memory networkName
     )
         internal
         view
         returns (ProjectHandlesDeployment memory deployment)
     {
-        deployment.project_handles =
-            JBProjectHandles(_getDeploymentAddress(path, "nana-project-handles", network_name, "JBProjectHandles"));
+        deployment.projectHandles = IJBProjectHandles(
+            _getDeploymentAddress({
+                path: path,
+                projectName: "project-handles-v6",
+                networkName: networkName,
+                contractName: "JBProjectHandles"
+            })
+        );
     }
 
-    /// @notice Get the address of a contract that was deployed by the Deploy script.
-    /// @dev Reverts if the contract was not found.
-    /// @param path The path to the deployment file.
-    /// @param contractName The name of the contract to get the address of.
-    /// @return The address of the contract.
     function _getDeploymentAddress(
         string memory path,
-        string memory project_name,
-        string memory network_name,
+        string memory projectName,
+        string memory networkName,
         string memory contractName
     )
         internal
@@ -62,7 +60,7 @@ library ProjectHandlesDeploymentLib {
         returns (address)
     {
         string memory deploymentJson =
-            vm.readFile(string.concat(path, project_name, "/", network_name, "/", contractName, ".json"));
-        return stdJson.readAddress(deploymentJson, ".address");
+            vm.readFile(string.concat(path, projectName, "/", networkName, "/", contractName, ".json"));
+        return stdJson.readAddress({json: deploymentJson, key: ".address"});
     }
 }
