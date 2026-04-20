@@ -19,7 +19,7 @@ The v5 contract had an explicit `_contextSuffixLength()` override that just call
 ### Package name
 
 - **v5:** `@bananapus/project-handles`
-- **v6:** `@bananapus/nana-project-handles-v6`
+- **v6:** `@bananapus/project-handles-v6`
 
 ### Dependencies
 

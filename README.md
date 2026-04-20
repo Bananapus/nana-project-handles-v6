@@ -1,6 +1,6 @@
 # Project Handles V6
 
-`@bananapus/nana-project-handles-v6` is a permissionless ENS handle registry for Juicebox projects. It stores ENS name parts by `(chainId, projectId, setter)` and only returns a handle when the ENS text record points back to that same project.
+`@bananapus/project-handles-v6` is a permissionless ENS handle registry for Juicebox projects. It stores ENS name parts by `(chainId, projectId, setter)` and only returns a handle when the ENS text record points back to that same project.
 
 Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)  
 User journeys: [USER_JOURNEYS.md](./USER_JOURNEYS.md)  
@@ -62,7 +62,7 @@ So this repo is not a source of canonical truth. It is a source of verifiable cl
 ## Install
 
 ```bash
-npm install @bananapus/nana-project-handles-v6
+npm install @bananapus/project-handles-v6
 ```
 
 ## Development
