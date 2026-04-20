@@ -28,7 +28,7 @@ This file focuses on the ENS-dependency, setter-selection, and verification-mode
 - **Setter trust is external.** The contract does not know which setter is official.
 - **No delete path.** A setter cannot clear its record back to true onchain null state. It can only overwrite with different non-empty labels.
 - **ENS label normalization is offchain.** The contract rejects dots and empty labels, but it does not normalize case or Unicode.
-- **Resolver reverts are not caught.** `handleOf` returns `""` when no resolver exists, but if the resolver itself reverts, the whole call reverts.
+- **Resolver reverts are not caught.** `handleOf` returns `""` when no resolver exists, but if the resolver itself reverts, the whole call reverts. A malicious or broken ENS resolver can therefore DoS `handleOf` for any record pointing at it. Impact is availability-only — no forged verification or cross-setter corruption is possible. Wrapping the `ITextResolver.text()` call in `try/catch` and returning `""` on failure would make the read path consistently fail-closed.
 - **Cross-chain semantics are social, not enforced.** `chainId` is only part of the lookup key and expected text-record value.
 
 ## 3. Integration Risks
