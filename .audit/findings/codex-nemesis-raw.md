@@ -1,82 +1,96 @@
-# N E M E S I S — Raw Findings
+# N E M E S I S — Raw Repo-Level Audit
 
 ## Scope
 - Repo: `project-handles-v6`
-- Solidity files in scope:
-  - `src/JBProjectHandles.sol`
-  - `src/interfaces/IJBProjectHandles.sol`
-  - `script/Deploy.s.sol`
-  - `script/helpers/ProjectHandlesDeploymentLib.sol`
+- Solidity files analyzed: `src/JBProjectHandles.sol`, `src/interfaces/IJBProjectHandles.sol`, `script/Deploy.s.sol`, `script/helpers/ProjectHandlesDeploymentLib.sol`
+- Audit mode: one integrated repo audit, not per-file loops
 
 ## Phase 0 — Nemesis Recon
 
 **Language:** Solidity 0.8.28
 
-**Attack goals:**
-1. Break setter isolation so one address can overwrite another setter’s ENS record.
-2. Break verification correctness so `handleOf` returns a false positive or misses a valid handle.
-3. Abuse the trusted forwarder boundary to spoof `_msgSender()` outside the intended ERC2771 path.
-4. Corrupt deployment wiring so runtime meta-tx semantics differ from the rest of `core-v6`.
+**Attack Goals**
+1. Corrupt another setter's record by confusing `_msgSender()` under ERC-2771.
+2. Return a non-empty handle without the correct ENS `juicebox` round-trip.
+3. Break the verification surface so clients cannot safely read handles.
 
-**Novel code:**
-- `src/JBProjectHandles.sol` — custom ENS name-part validation, handle formatting, and EIP-137 namehash plumbing.
-- `script/Deploy.s.sol` — repo-specific deployment wiring from `core-v6` into this runtime.
+**Novel Code**
+- `JBProjectHandles._namehash` / `_formatHandle` — custom label-ordering logic.
+- `JBProjectHandles.handleOf` — external ENS dependency boundary.
+- `Deploy.run/deploy` — runtime trusted-forwarder wiring from another repo's deployment artifacts.
 
-**Value stores + coupling hypothesis:**
-- `_ensNamePartsOf` holds the only mutable project-handle state.
-  - Outflows: none.
-  - Suspected coupled state: effective sender identity, ENS resolver text record, formatted handle, computed namehash.
-- Deployment `core.trustedForwarder`.
-  - Outflows: constructor argument into `JBProjectHandles`.
-  - Suspected coupled state: ERC2771 `_msgSender()` behavior after deployment.
+**Value / Trust Stores + Initial Coupling Hypothesis**
+- `_ensNamePartsOf` holds candidate handle state.
+  - Outflows: read by `ensNamePartsOf`, `handleOf`.
+  - Suspected coupled state: effective sender namespace, derived handle string, derived ENS node, ENS text record binding.
+- `core.trustedForwarder` holds deployment-time trust for meta-tx sender derivation.
+  - Outflows: constructor arg into `JBProjectHandles`.
+  - Suspected coupled state: `_msgSender()` semantics at runtime.
 
-**Complex paths:**
-- `setEnsNamePartsFor` -> `_msgSender()` -> storage write -> later `handleOf` -> `_namehash` -> `ENS_REGISTRY.resolver()` -> `ITextResolver.text()`.
-- `Deploy.run` -> `CoreDeploymentLib.getDeployment()` -> deployment JSON -> `deploy()` -> `new JBProjectHandles(core.trustedForwarder)`.
+**Complex Paths**
+- Setter write -> later verification through ENS registry and resolver.
+- Deployment artifact read -> trusted forwarder injection -> all future setter isolation.
 
-**Priority order:**
-1. `JBProjectHandles.setEnsNamePartsFor` + `handleOf` + `_namehash`
-2. ERC2771 forwarder boundary
-3. Sphinx/core deployment wiring
+**Priority Order**
+1. `handleOf`
+2. `setEnsNamePartsFor`
+3. `run` / `deploy`
 
 ## Phase 1 — Unified Nemesis Map
+
 | Function | Writes A | Writes B | A↔B Pair | Sync Status |
-|----------|----------|----------|----------|-------------|
-| `setEnsNamePartsFor` | `_ensNamePartsOf[...]` | effective setter key implicit in slot selection | storage ↔ `_msgSender()` | synced |
-| `handleOf` | none | none | stored parts ↔ ENS text record | checked on read |
-| `Deploy.deploy` | deployment side effect | constructor trusted forwarder binding | script config ↔ runtime meta-tx semantics | synced |
+|---|---|---|---|---|
+| `setEnsNamePartsFor` | `_ensNamePartsOf` | `_msgSender()`-scoped namespace | storage↔setter | synced |
+| `handleOf` | none | none | stored parts↔ENS text record | read-only verification |
+| `run` | `core` | deployment inputs | deploy cache↔constructor args | synced |
+| `deploy` | deployment side effect | constructor arg | trusted forwarder↔runtime sender model | suspect until verified |
 
-## Pass 1 — Feynman Raw Suspects
-1. **Raw suspect:** `setEnsNamePartsFor` assumes provided ENS labels are already canonical ENS labels.
-   - Evidence: only empty-string and ASCII-dot validation before storage.
-   - Downstream path: `_namehash` hashes raw label bytes with no normalization.
-   - Candidate consequence: valid ENS names supplied in non-canonical form may never verify.
+## Pass 1 — Feynman (full)
 
-2. **Cleared suspect:** non-forwarder calldata suffix spoofing.
-   - Cleared by OpenZeppelin `isTrustedForwarder(msg.sender)` gate.
+### New findings / suspects
+- `FF-R1` low: resolver revert propagates through `handleOf`.
+- `FF-R2` low suspect: `deploy()` assumes `run()` already initialized `core`.
+- `FF-R3` low suspect: raw-label storage without normalization.
 
-3. **Cleared suspect:** cross-setter pollution.
-   - Cleared by sole write path to `_ensNamePartsOf[...][_msgSender()]`.
+## Pass 2 — State Inconsistency (full, enriched)
 
-4. **Cleared suspect:** deployment script miswires an arbitrary forwarder.
-   - Cleared by direct load from `@bananapus/core-v6` deployment JSON for the current chain.
+### New coupled pairs
+- No additional writable storage pairs beyond setter namespace, derived handle/namehash, ENS text-record binding, and deployment forwarder trust.
 
-## Pass 2 — State Raw Output
-- Coupled pairs mapped:
-  - storage slot ↔ effective sender
-  - stored parts ↔ ENS text record for computed node
-  - deployment forwarder input ↔ runtime `_msgSender()` semantics
-- No mutation gaps found.
-- No parallel-path mismatch found between direct calls and ERC2771-forwarded calls.
-- No masking code found.
-- Delta from Pass 2: none beyond confirming Pass 1’s raw suspect is not a state-desync issue.
+### Gaps
+- No storage mutation gaps found in `_ensNamePartsOf`.
+- Divergence noted in verification miss handling: missing/mismatched data returns `""`, but resolver revert bubbles.
+
+## Pass 3 — Feynman Re-Interrogation (targeted)
+
+### Delta on Pass 2 items
+- Resolver-revert path is real and reachable. Root cause: `ITextResolver.text(...)` is not wrapped in `try/catch`.
+- No downstream forged verification discovered; impact remains availability-only.
+- No root-cause evidence that `deploy()` is unsafe in the intended Sphinx workflow.
+
+## Pass 4 — State Re-Analysis (targeted)
+
+### Delta on Pass 3 items
+- No new state couplings or mutation paths discovered.
+- No hidden reconciliation or lazy-sync patterns exist; the contract is effectively stateless apart from `_ensNamePartsOf`.
 
 ## Convergence
-- Full Pass 1 (Feynman): 1 raw suspect
-- Full Pass 2 (State): 0 new findings, 0 new coupled gaps
-- Converged after Pass 2. No targeted Pass 3/4 delta required.
+- Converged after 4 passes.
+- Last pass produced no new findings, coupled pairs, or mutation paths.
 
 ## Raw Finding Set
-| ID | Source | Title | Severity | Status |
-|----|--------|-------|----------|--------|
-| NM-RAW-001 | Feynman-only | Non-normalized ENS labels can be stored but later fail verification | LOW | verified true positive |
+
+### NM-R1: Resolver Revert Bubbles Through Verification
+- Severity: LOW
+- Discovery path: Feynman-only, confirmed in targeted re-pass
+- Affected path: `handleOf` -> `ENS_REGISTRY.resolver` -> `ITextResolver.text`
+
+### NM-R2: Direct `deploy()` invocation without `run()`
+- Severity: LOW
+- Discovery path: Feynman-only
+- Status: likely false positive / operational-only pending verification
+
+### NM-R3: Non-normalized labels stored unchanged
+- Severity: LOW
+- Discovery path: Feynman-only
+- Status: likely accepted-by-design pending verification

@@ -2,90 +2,90 @@
 
 ## Scope
 - Language: Solidity 0.8.28
-- Modules analyzed:
-  - `src/JBProjectHandles.sol`
-  - `src/interfaces/IJBProjectHandles.sol`
-  - `script/Deploy.s.sol`
-  - `script/helpers/ProjectHandlesDeploymentLib.sol`
-- Functions analyzed: 15
-- Coupled state pairs mapped: 3
-- Mutation paths traced: 3
-- Nemesis loop iterations: 2 passes total (`Feynman -> State`)
+- Modules analyzed: `src/JBProjectHandles.sol`, `src/interfaces/IJBProjectHandles.sol`, `script/Deploy.s.sol`, `script/helpers/ProjectHandlesDeploymentLib.sol`
+- Functions analyzed: 14 executable functions across repo code, plus the interface surface
+- Coupled state pairs mapped: 4
+- Mutation paths traced: 4
+- Nemesis loop iterations: 4 passes total (`Feynman -> State -> Feynman -> State`)
 
 ## Nemesis Map (Phase 1 Cross-Reference)
+
 | Function | Writes A | Writes B | A↔B Pair | Sync Status |
-|----------|----------|----------|----------|-------------|
-| `setEnsNamePartsFor` | `_ensNamePartsOf[chainId][projectId][_msgSender()]` | sender-scoped slot selection | storage ↔ effective sender identity | `SYNCED` |
-| `handleOf` | none | none | stored parts ↔ ENS text record | `READ-TIME CHECK` |
-| `Deploy.deploy` | constructor side effect | runtime forwarder binding | deployment forwarder ↔ `_msgSender()` semantics | `SYNCED` |
+|---|---|---|---|---|
+| `setEnsNamePartsFor` | `_ensNamePartsOf` | setter namespace via `_msgSender()` | storage↔setter | synced |
+| `handleOf` | none | none | stored parts↔ENS text record | read-only verification |
+| `run` | `core` | constructor input cache | deployment cache↔forwarder wiring | synced |
+| `deploy` | deployment side effect | runtime trust root | trusted forwarder↔ERC-2771 sender model | verified operationally safe in intended flow |
 
 ## Verification Summary
 | ID | Source | Coupled Pair | Breaking Op | Severity | Verdict |
-|----|--------|-------------|-------------|----------|---------|
-| NM-001 | Feynman-only | stored ENS parts ↔ canonical ENS node | `setEnsNamePartsFor()` / `_namehash()` | LOW | TRUE POS |
+|---|---|---|---|---|---|
+| NM-001 | Feynman-only | derived ENS node ↔ resolver text read | `handleOf()` | LOW | TRUE POSITIVE |
 
-## Verified Findings (TRUE POSITIVES only)
+## Verified Findings
 
-### Finding NM-001: Non-canonical ENS labels break verification correctness
-**Severity:** LOW
-**Source:** Feynman-only
-**Verification:** Code trace
+### Finding NM-001: Resolver Reverts Break the "Verified Or Empty" Read Path
+**Severity:** LOW  
+**Source:** Feynman-only  
+**Verification:** Hybrid
 
-**Coupled Pair:** Stored ENS parts ↔ canonical ENS node used by the ENS registry
-**Invariant:** The bytes accepted for storage must correspond to the same canonical ENS node that the resolver and text record were registered under.
+**Coupled Pair:** derived ENS node ↔ resolver text read result  
+**Invariant:** verification failures should degrade to an empty string rather than throwing, otherwise the read surface is not consistently fail-closed.
 
 **Feynman Question that exposed it:**
-> What does this function assume about external data it receives, and is that assumption enforced before the data becomes part of the verification path?
+> What happens on the error path of the external resolver call inside `handleOf`?
 
 **State Mapper gap that confirmed it:**
-> The state pass confirmed there is no secondary normalization or reconciliation path between stored parts and the node later queried in `handleOf`.
+> Parallel-path comparison showed that "no resolver" and "text mismatch" both return `""`, while "resolver revert" diverges and aborts the call.
 
-**Breaking Operation:** `setEnsNamePartsFor()` at [src/JBProjectHandles.sol:61](/Users/jango/Documents/jb/v6/evm/project-handles-v6/src/JBProjectHandles.sol#L61)
-- Modifies State A: stores arbitrary non-empty, no-ASCII-dot labels under `_ensNamePartsOf`.
-- Does NOT update State B: there is no canonicalization step to align stored bytes with ENS-normalized label bytes before `_namehash()` later queries the registry.
+**Breaking Operation:** `handleOf()` at `src/JBProjectHandles.sol:139`
+- Reads the resolver from ENS.
+- Calls `ITextResolver(textResolver).text(hashedName, TEXT_KEY)` at `src/JBProjectHandles.sol:145`.
+- Does not catch resolver failure.
 
 **Trigger Sequence:**
-1. A setter owns `alice.eth` and sets its ENS `juicebox` text record to `1:5`.
-2. The setter calls `setEnsNamePartsFor(1, 5, ["ALICE"])`.
-3. The contract stores `["ALICE"]` because uppercase is not rejected.
-4. A client calls `handleOf(1, 5, setter)`.
-5. `_namehash()` hashes `ALICE` verbatim, so `ENS_REGISTRY.resolver()` is queried for a different node than canonical `alice.eth`.
-6. `handleOf` returns `""` even though the intended ENS text record matches.
+1. A setter stores ENS parts with `setEnsNamePartsFor`.
+2. The ENS registry resolves the derived node to a resolver contract.
+3. That resolver reverts on `text(namehash, "juicebox")`.
+4. `handleOf` reverts instead of returning `""`.
 
 **Consequence:**
-- Breaks the repo’s stated verification-correctness goal for non-canonical label input.
-- Causes self-inflicted handle resolution failure until the setter overwrites the record with canonical labels.
+- Integrations that treat `handleOf` as a safe verification oracle can be DoSed for that record.
+- The bug does not forge verification or cross setter boundaries, so impact is availability-only.
 
 **Verification Evidence:**
-- Validation only rejects empties and ASCII dots at [src/JBProjectHandles.sol:68](/Users/jango/Documents/jb/v6/evm/project-handles-v6/src/JBProjectHandles.sol#L68).
-- `_namehash()` hashes raw bytes at [src/JBProjectHandles.sol:181](/Users/jango/Documents/jb/v6/evm/project-handles-v6/src/JBProjectHandles.sol#L181).
-- No repo function lowercases or normalizes stored labels before lookup.
-- Existing tests cover empty labels, ASCII dots, matching text records, mismatches, and ERC2771 behavior, but not uppercase or other non-canonical labels.
+- Code trace: no `try/catch` or alternate error handling exists around the external resolver call.
+- PoC: `test_handleOf_revertsWhenResolverReverts()` passes under Foundry and demonstrates the revert propagation.
 
 **Fix:**
 ```solidity
-// Enforce canonical ENS input before storage, for example by:
-// - restricting labels to a canonical lowercase subset, or
-// - normalizing labels with ENS-compatible normalization before hashing/storage.
+try ITextResolver(textResolver).text(hashedName, TEXT_KEY) returns (string memory textRecord) {
+    if (
+        keccak256(bytes(textRecord))
+            != keccak256(bytes(string.concat(Strings.toString(chainId), ":", Strings.toString(projectId))))
+    ) return "";
+    return _formatHandle(ensNameParts);
+} catch {
+    return "";
+}
 ```
 
 ## Feedback Loop Discoveries
-- None. The state pass found no additional coupled-state gaps or parallel-path mismatches beyond the Feynman canonicalization issue.
+- None. The State pass narrowed the impact of the resolver-revert issue, but it did not reveal an additional cross-contract or state-desync bug.
 
 ## False Positives Eliminated
-- **ERC2771 spoofing by non-forwarders:** eliminated by the `isTrustedForwarder(msg.sender)` gate in OpenZeppelin’s `ERC2771Context`.
-- **Cross-setter record corruption:** eliminated because the only write path stores under `_msgSender()`, never a caller-supplied setter.
-- **Deployment wiring bug:** eliminated by tracing `Deploy.run()` into `CoreDeploymentLib.getDeployment()` and confirming the trusted forwarder comes directly from the current-chain `core-v6` deployment artifact.
-- **Resolver revert handling:** reviewed but not reported because the repo docs already model ENS availability/revert behavior as an accepted external dependency risk, not a broken internal invariant.
+- Cross-setter corruption through normal calls or non-forwarder calldata padding: eliminated by direct code trace and existing ERC-2771 tests.
+- `_namehash` label-order bug: eliminated by code trace and `test_namehash_matchesKnownValues()`.
+- Deployment-ordering bug in `Deploy.deploy()`: not reported because the repo does not provide evidence that the intended Sphinx production path bypasses `run()`.
 
 ## Downgraded Findings
 - None.
 
 ## Summary
-- Total functions analyzed: 15
-- Coupled state pairs mapped: 3
-- Nemesis loop iterations: 2
-- Raw findings (pre-verification): 0 C | 0 H | 0 M | 1 L
+- Total functions analyzed: 14 executable functions across repo code
+- Coupled state pairs mapped: 4
+- Nemesis loop iterations: 4 passes total
+- Raw findings: 0 CRITICAL | 0 HIGH | 0 MEDIUM | 3 LOW
 - Feedback loop discoveries: 0
-- After verification: 1 TRUE POSITIVE | 0 FALSE POSITIVE | 0 DOWNGRADED
+- After verification: 1 TRUE POSITIVE | 2 FALSE POSITIVE / accepted
 - Final: 0 CRITICAL | 0 HIGH | 0 MEDIUM | 1 LOW
