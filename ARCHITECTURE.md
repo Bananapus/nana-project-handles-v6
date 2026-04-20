@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`project-handles-v6` is a permissionless ENS handle registry for Juicebox projects. It stores the reverse side of the link: which ENS name a given setter has claimed for a project on a given chain.
+`nana-project-handles-v6` is a permissionless ENS handle registry for Juicebox projects. It stores the reverse side of the link: which ENS name a given setter has claimed for a project on a given chain.
 
 ## System Overview
 

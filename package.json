@@ -4,7 +4,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Bananapus/project-handles-v6"
+    "url": "git+https://github.com/Bananapus/nana-project-handles-v6"
   },
   "engines": {
     "node": ">=20.0.0"
