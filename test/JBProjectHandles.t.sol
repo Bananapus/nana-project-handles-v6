@@ -302,6 +302,33 @@ contract JBProjectHandlesTest is Test {
         assertEq(projectHandle.handleOf(chainId, projectId, projectOwner), "");
     }
 
+    /// @notice handleOf bubbles a resolver revert instead of degrading to empty.
+    function test_handleOf_revertsWhenResolverReverts() public {
+        uint256 projectId = jbProjects.createFor(projectOwner);
+        uint256 chainId = 1;
+
+        string[] memory nameParts = new string[](1);
+        nameParts[0] = "alice";
+
+        vm.prank(projectOwner);
+        projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
+
+        vm.mockCall(
+            address(ENS_REGISTRY),
+            abi.encodeWithSelector(ENS.resolver.selector, _namehash(nameParts)),
+            abi.encode(address(ensTextResolver))
+        );
+
+        vm.mockCallRevert(
+            address(ensTextResolver),
+            abi.encodeWithSelector(ITextResolver.text.selector, _namehash(nameParts), projectHandle.TEXT_KEY()),
+            abi.encodeWithSignature("ResolverFailure()")
+        );
+
+        vm.expectRevert(abi.encodeWithSignature("ResolverFailure()"));
+        projectHandle.handleOf(chainId, projectId, projectOwner);
+    }
+
     /// @notice handleOf returns empty when text record matches a different chainId.
     function test_handleOf_returnsEmptyWhenChainIdMismatch() public {
         uint256 projectId = jbProjects.createFor(projectOwner);

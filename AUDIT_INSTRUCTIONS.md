@@ -1,15 +1,16 @@
 # Audit Instructions
 
-This repo stores and verifies ENS-based project handles. Audit it as a small identity registry whose main risks are verification mistakes and cross-setter state corruption.
+This repo stores and verifies ENS-based project handles. Audit it as a small identity registry whose main risks are verification mistakes and cross-setter corruption.
 
 ## Audit Objective
 
 Find issues that:
-- Allow a setter to corrupt another setter's records.
-- Break the two-way ENS verification (handle resolves without matching text record, or fails to resolve with matching text record).
-- Enable ENS injection via malformed name parts.
-- Cause `_namehash` to produce incorrect EIP-137 hashes.
-- Allow the trusted forwarder to bypass intended access controls in unexpected ways.
+
+- let a setter corrupt another setter's records
+- break the two-way ENS verification model
+- enable ENS injection through malformed name parts
+- cause `_namehash` to produce incorrect EIP-137 hashes
+- let the trusted forwarder bypass intended access control in unexpected ways
 
 ## Scope
 
@@ -27,7 +28,7 @@ Find issues that:
 
 ## Security Model
 
-`JBProjectHandles` stores ENS name parts per `(chainId, projectId, setter)` and verifies handles by querying ENS text records. It is permissionless — anyone can set records, and verification happens at read time.
+`JBProjectHandles` stores ENS name parts per `(chainId, projectId, setter)` and verifies handles by querying ENS text records. It is permissionless. Anyone can store records, and verification happens only at read time.
 
 ## Roles And Privileges
 
@@ -42,12 +43,19 @@ Find issues that:
 |------------|------------|----------------------|
 | ENS resolver and text records | Return the intended `chainId:projectId` binding | Handle verification becomes false-positive or false-negative |
 
-## Critical invariants
+## Critical Invariants
 
-1. **Setter isolation:** `_ensNamePartsOf[chainId][projectId][setter]` can only be written when `_msgSender() == setter`.
-2. **Verification correctness:** `handleOf` returns a non-empty string only when the ENS text record matches `chainId:projectId`.
-3. **Name part validation:** Empty parts and parts containing dots are always rejected.
-4. **Namehash correctness:** `_namehash` produces EIP-137 compliant hashes.
+1. Setter isolation
+   `_ensNamePartsOf[chainId][projectId][setter]` can only be written when `_msgSender() == setter`.
+
+2. Verification correctness
+   `handleOf` returns a non-empty string only when the ENS text record matches `chainId:projectId`.
+
+3. Name part validation
+   Empty parts and parts containing dots are always rejected.
+
+4. Namehash correctness
+   `_namehash` must produce EIP-137 compliant hashes.
 
 ## Attack Surfaces
 

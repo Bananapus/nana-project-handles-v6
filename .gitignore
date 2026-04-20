@@ -27,3 +27,6 @@ backup/
 .secret
 
 publish.sh
+
+# Audit artifacts
+.audit/

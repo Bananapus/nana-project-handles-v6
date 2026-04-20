@@ -2,9 +2,8 @@
 
 ## Use This File For
 
-- Use this file when you need to understand ENS handle resolution for Juicebox projects.
-- Use this file when modifying handle verification, name-part storage, or deployment assumptions around the registry.
-- Start here when debugging why a handle is missing, empty, or resolving differently than expected. Most failures are either setter mismatch, ENS resolver behavior, or non-canonical labels.
+- Use this file when the task is about ENS handle resolution for Juicebox projects.
+- Start here when debugging why a handle is missing, empty, or resolving differently than expected.
 
 ## Read This Next
 
@@ -28,17 +27,17 @@
 
 ## Purpose
 
-Permissionless ENS handle registry. Stores ENS name parts per `(chainId, projectId, setter)` and verifies handles by checking ENS text records.
+Permissionless ENS handle registry. It stores ENS name parts per `(chainId, projectId, setter)` and verifies handles by checking ENS text records.
 
 ## Reference Files
 
-- Open [`references/runtime.md`](./references/runtime.md) when you need handle verification semantics, ENS dependency notes, or the main invariants around storage and namehashing.
-- Open [`references/operations.md`](./references/operations.md) when you need change-specific validation guidance, common failure modes, or deployment-time sender assumptions.
+- Open [`references/runtime.md`](./references/runtime.md) for handle verification semantics, ENS dependency notes, and the main invariants around storage and namehashing.
+- Open [`references/operations.md`](./references/operations.md) for change-specific validation guidance, common failure modes, and deployment assumptions.
 
 ## Working Rules
 
-- Start in [`src/JBProjectHandles.sol`](./src/JBProjectHandles.sol). The repo is intentionally small, so most behavior lives in one contract.
-- `handleOf` is read-only verification. It queries ENS registry and resolver contracts; failures here are integration failures, not state transitions.
+- Start in [`src/JBProjectHandles.sol`](./src/JBProjectHandles.sol). Most of the behavior is in one contract.
+- `handleOf` is read-only verification. It queries ENS contracts, so failures there are often integration failures, not state-transition bugs.
 - Setter isolation is the core storage invariant. Storage is keyed by `_msgSender()`, so frontends and scripts must use the intended setter address.
-- Callers are expected to provide ENS-normalized labels. Raw mixed-case or otherwise non-canonical labels can store successfully but fail to resolve as intended.
-- Dot validation in `setEnsNamePartsFor` is a security boundary. Do not weaken it without re-deriving the namehash safety properties.
+- Callers are expected to provide ENS-normalized labels. Raw mixed-case or otherwise non-canonical labels can store successfully but fail to resolve later.
+- Dot validation in `setEnsNamePartsFor` is a real safety boundary. Do not weaken it without re-deriving the namehash assumptions.
