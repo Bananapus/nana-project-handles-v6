@@ -26,4 +26,4 @@ The `_namehash` function must match the EIP-137 standard exactly. An incorrect h
 
 | Test file | What it covers |
 |-----------|---------------|
-| `test/JBProjectHandles.t.sol` | Fuzz tests for set/get, dot validation, handle verification, ENS mocking |
+| [`test/JBProjectHandles.t.sol`](../test/JBProjectHandles.t.sol) | Fuzz tests for set/get, dot validation, handle verification, ENS mocking |

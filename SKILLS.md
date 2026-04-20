@@ -1,41 +1,44 @@
-# Skills
+# Project Handles
 
-Working reference guide for understanding and modifying this repository.
+## Use This File For
 
-## When to use this file
+- Use this file when you need to understand ENS handle resolution for Juicebox projects.
+- Use this file when modifying handle verification, name-part storage, or deployment assumptions around the registry.
+- Start here when debugging why a handle is missing, empty, or resolving differently than expected. Most failures are either setter mismatch, ENS resolver behavior, or non-canonical labels.
 
-- You need to understand ENS handle resolution for Juicebox projects.
-- You're modifying the handle verification or name part storage logic.
-- You're debugging why a handle isn't resolving.
+## Read This Next
 
-## Read-next matrix
+| If you need... | Open this next |
+|---|---|
+| Repo overview and architecture | [`README.md`](./README.md), [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| ENS verification flow | [`src/JBProjectHandles.sol`](./src/JBProjectHandles.sol) and `handleOf` |
+| Name-part storage and validation | [`src/JBProjectHandles.sol`](./src/JBProjectHandles.sol) and `setEnsNamePartsFor` |
+| Runtime and operational assumptions | [`references/runtime.md`](./references/runtime.md), [`references/operations.md`](./references/operations.md) |
+| Deployment flow | [`script/Deploy.s.sol`](./script/Deploy.s.sol) |
+| Runtime validation | [`test/JBProjectHandles.t.sol`](./test/JBProjectHandles.t.sol) |
 
-| Starting from | Read next |
-|---------------|-----------|
-| New to repo | README.md → ARCHITECTURE.md |
-| Understanding verification | src/JBProjectHandles.sol (`handleOf`) |
-| Understanding storage | src/JBProjectHandles.sol (`setEnsNamePartsFor`, `_ensNamePartsOf`) |
-| Running tests | test/JBProjectHandles.t.sol |
-| Deploying | script/Deploy.s.sol |
+## Repo Map
 
-## Repo map
-
-```
-src/JBProjectHandles.sol          — Single contract: storage, validation, ENS verification
-src/interfaces/IJBProjectHandles.sol — Interface with events and function signatures
-test/JBProjectHandles.t.sol       — Fuzz tests for set/get/verify flows
-script/Deploy.s.sol               — Sphinx-based deployment
-script/helpers/                   — Deployment artifact reader
-```
+| Area | Where to look |
+|---|---|
+| Main contract | [`src/JBProjectHandles.sol`](./src/JBProjectHandles.sol) |
+| Interface | [`src/interfaces/IJBProjectHandles.sol`](./src/interfaces/IJBProjectHandles.sol) |
+| Scripts | [`script/`](./script/) |
+| Tests | [`test/`](./test/) |
 
 ## Purpose
 
 Permissionless ENS handle registry. Stores ENS name parts per `(chainId, projectId, setter)` and verifies handles by checking ENS text records.
 
-## Working rules
+## Reference Files
 
-1. **Start in `src/JBProjectHandles.sol`** — it's the only contract, intentionally small.
-2. **`handleOf` is read-only verification** — it queries ENS and compares records. No state changes.
-3. **Setter isolation** — storage is keyed by `_msgSender()`. One caller's records cannot affect another's.
-4. **Dot validation matters** — prevents ENS injection attacks. Do not weaken the check in `setEnsNamePartsFor`.
-5. **ENS namehash is EIP-137** — the `_namehash` function must match the standard exactly for resolution to work.
+- Open [`references/runtime.md`](./references/runtime.md) when you need handle verification semantics, ENS dependency notes, or the main invariants around storage and namehashing.
+- Open [`references/operations.md`](./references/operations.md) when you need change-specific validation guidance, common failure modes, or deployment-time sender assumptions.
+
+## Working Rules
+
+- Start in [`src/JBProjectHandles.sol`](./src/JBProjectHandles.sol). The repo is intentionally small, so most behavior lives in one contract.
+- `handleOf` is read-only verification. It queries ENS registry and resolver contracts; failures here are integration failures, not state transitions.
+- Setter isolation is the core storage invariant. Storage is keyed by `_msgSender()`, so frontends and scripts must use the intended setter address.
+- Callers are expected to provide ENS-normalized labels. Raw mixed-case or otherwise non-canonical labels can store successfully but fail to resolve as intended.
+- Dot validation in `setEnsNamePartsFor` is a security boundary. Do not weaken it without re-deriving the namehash safety properties.
