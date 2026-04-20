@@ -1,6 +1,8 @@
 # Audit Instructions
 
-## Objective
+This repo stores and verifies ENS-based project handles. Audit it as a small identity registry whose main risks are verification mistakes and cross-setter state corruption.
+
+## Audit Objective
 
 Find issues that:
 - Allow a setter to corrupt another setter's records.
@@ -15,11 +17,30 @@ Find issues that:
 |------|---------|
 | `src/JBProjectHandles.sol` | Main contract: storage, validation, ENS verification |
 | `src/interfaces/IJBProjectHandles.sol` | Interface: events, views, transactions |
-| `script/Deploy.s.sol` | Sphinx-based deployment |
+| `script/Deploy.s.sol` | Deployment |
 
-## System model
+## Start Here
+
+1. `src/JBProjectHandles.sol`
+2. `_namehash` and handle verification logic
+3. `script/Deploy.s.sol`
+
+## Security Model
 
 `JBProjectHandles` stores ENS name parts per `(chainId, projectId, setter)` and verifies handles by querying ENS text records. It is permissionless — anyone can set records, and verification happens at read time.
+
+## Roles And Privileges
+
+| Role | Powers | How constrained |
+|------|--------|-----------------|
+| Setter | Store ENS name parts for its own namespace | Must not modify another setter's records |
+| Trusted forwarder | Define `_msgSender()` in meta-tx flows | Must not let callers spoof another setter |
+
+## Integration Assumptions
+
+| Dependency | Assumption | What breaks if wrong |
+|------------|------------|----------------------|
+| ENS resolver and text records | Return the intended `chainId:projectId` binding | Handle verification becomes false-positive or false-negative |
 
 ## Critical invariants
 
@@ -28,29 +49,17 @@ Find issues that:
 3. **Name part validation:** Empty parts and parts containing dots are always rejected.
 4. **Namehash correctness:** `_namehash` produces EIP-137 compliant hashes.
 
-## Threat model
+## Attack Surfaces
 
-- **Cross-setter pollution:** Can setter A's transaction modify setter B's records?
-- **ERC2771 spoofing:** Can a non-forwarder caller manipulate `_msgSender()`?
-- **ENS injection:** Can malformed name parts cause `_namehash` to produce a hash that resolves to an unintended ENS name?
-- **Text record bypass:** Can `handleOf` return a verified handle when the ENS text record doesn't match?
-- **Dot bypass:** Can name parts with encoded dots (e.g., URL-encoded, Unicode) bypass the dot validation?
+- cross-setter writes to the `(chainId, projectId, setter)` namespace
+- ERC-2771 sender handling
+- malformed or ambiguous ENS name parts
+- text-record verification and namehash calculation
 
-## Build and verification
+## Verification
 
 ```bash
 npm install
 forge build
 forge test
 ```
-
-## Test notes
-
-Tests cover:
-- Single and multi-level subdomain name parts (fuzz)
-- Empty parts and empty array rejection
-- Dot validation in name parts (fuzz)
-- Handle resolution with matching text records
-- Handle resolution with mismatched text records
-- Handle resolution with unregistered ENS names
-- Handle resolution with no parts set

@@ -1,40 +1,73 @@
 # Administration
 
-## At a glance
+## At A Glance
 
-| Aspect | Detail |
-|--------|--------|
-| Owner | None |
-| Admin functions | None |
-| Pause capability | None |
-| Upgrade path | None — deploy new contract and migrate clients |
+| Item | Details |
+| --- | --- |
+| Scope | Permissionless project-handle publication keyed by caller identity |
+| Control posture | Fully permissionless and adminless |
+| Highest-risk actions | Offchain clients trusting the wrong setter or stale handle resolution policy |
+| Recovery posture | Fix the client trust model or deploy replacement code; there is no owner recovery path |
 
-## Permissionless design
+## Purpose
 
-`JBProjectHandles` has no privileged roles. All functions are callable by any address:
+`project-handles-v6` has no privileged admin surface. It is intentionally permissionless. The only real control consideration is how clients choose which `setter` address they trust when resolving a handle.
 
-| Function | Access | Effect |
-|----------|--------|--------|
-| `setEnsNamePartsFor` | Anyone | Stores ENS name parts under `_msgSender()` |
-| `ensNamePartsOf` | Anyone (view) | Reads stored name parts |
-| `handleOf` | Anyone (view) | Verifies handle against ENS text record |
+## Control Model
 
-## ERC2771 trusted forwarder
+- No owner
+- No governance
+- No pause
+- No upgrade
+- Immutable ERC-2771 forwarder configuration
 
-The contract inherits `ERC2771Context` and accepts a `trustedForwarder` address at construction. This enables meta-transactions where a relayer submits transactions on behalf of users. The forwarder address is immutable — it cannot be changed after deployment.
+## Roles
 
-**Trust implication:** The trusted forwarder can set `_msgSender()` to any address. Only deploy with a forwarder you trust, or use `address(0)` to disable meta-transactions.
+| Role | How Assigned | Scope | Notes |
+| --- | --- | --- | --- |
+| Anyone | No assignment | Global | Can set ENS name parts for themselves as setter |
+| Client integrator | Offchain choice | Per UI or indexer | Decides which setter to treat as authoritative |
 
-## Routine operations
+## Privileged Surfaces
 
-- **No maintenance required.** The contract has no state that needs periodic attention.
-- **Client-side:** Frontends should query `handleOf` with the current project owner as `setter`. If ownership changes, the frontend automatically sees the new owner has no handle set.
+There are no privileged functions.
 
-## One-way / high-risk actions
+Relevant permissionless functions are:
 
-- **No recovery:** If a setter loses access to their address, their stored records remain but cannot be updated or deleted.
-- **Forwarder lock-in:** The trusted forwarder is set at construction and cannot be changed. If the forwarder is compromised, deploy a new contract.
+- `setEnsNamePartsFor(...)`
+- `handleOf(...)`
 
-## Migration
+## Immutable And One-Way
 
-To migrate to a new version, deploy a new `JBProjectHandles` contract and point frontends to it. The old contract's storage remains on-chain but becomes unused.
+- There is no admin delete path.
+- The trusted forwarder is constructor-immutable.
+- Records are keyed by `_msgSender()`, so changing the trust model would require new code, not an admin action.
+
+## Operational Notes
+
+- Frontends should choose the trusted setter explicitly, usually the current project owner.
+- Treat stale records as a client-resolution problem, not an onchain admin problem.
+
+## Machine Notes
+
+- Do not confuse stored handle data with canonical project ownership; the contract does not verify that relationship.
+- Treat client-side setter selection as the real trust decision.
+- If an indexer resolves handles from the wrong setter, fix the indexer rather than searching for onchain admin recovery.
+
+## Recovery
+
+- There is no owner recovery surface.
+- If a client trusted the wrong setter, fix the client or indexer logic.
+
+## Admin Boundaries
+
+- Nobody can curate, delete, or seize records.
+- Nobody can verify project ownership onchain through this repo; clients decide which setter matters.
+
+## Source Map
+
+- `src/JBProjectHandles.sol`
+- `src/interfaces/IJBProjectHandles.sol`
+- `script/Deploy.s.sol`
+- `script/helpers/ProjectHandlesDeploymentLib.sol`
+- `test/JBProjectHandles.t.sol`
