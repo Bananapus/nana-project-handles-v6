@@ -14,7 +14,7 @@ contract Deploy is Script, Sphinx {
     CoreDeployment core;
 
     function configureSphinx() public override {
-        sphinxConfig.projectName = "project-handles-v6";
+        sphinxConfig.projectName = "nana-project-handles-v6";
         sphinxConfig.mainnets = ["ethereum"];
         sphinxConfig.testnets = ["ethereum_sepolia"];
     }

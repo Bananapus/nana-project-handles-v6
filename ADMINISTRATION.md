@@ -11,7 +11,7 @@
 
 ## Purpose
 
-`project-handles-v6` has no privileged admin surface. The real control question is how clients choose which `setter` address they trust when resolving a handle.
+`nana-project-handles-v6` has no privileged admin surface. The real control question is how clients choose which `setter` address they trust when resolving a handle.
 
 ## Control Model
 

@@ -42,7 +42,7 @@ library ProjectHandlesDeploymentLib {
         deployment.projectHandles = IJBProjectHandles(
             _getDeploymentAddress({
                 path: path,
-                projectName: "project-handles-v6",
+                projectName: "nana-project-handles-v6",
                 networkName: networkName,
                 contractName: "JBProjectHandles"
             })
