@@ -45,20 +45,21 @@ contract JBProjectHandlesTest is Test {
         string[] memory nameParts = new string[](1);
         nameParts[0] = name;
 
-        bool hasPeriod = false;
+        bool hasInvalidChar = false;
 
         bytes memory nameBytes = bytes(name);
         for (uint256 i = 0; i < nameBytes.length; i++) {
-            if (nameBytes[i] == ".") {
+            bytes1 b = nameBytes[i];
+            if (b == "." || b < 0x20 || b == 0x7f) {
                 vm.expectRevert(
                     abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_InvalidNamePart.selector, name)
                 );
-                hasPeriod = true;
+                hasInvalidChar = true;
                 break;
             }
         }
 
-        if (!hasPeriod) {
+        if (!hasInvalidChar) {
             vm.expectEmit(true, true, true, true);
             emit SetEnsNameParts(projectId, name, nameParts, projectOwner);
         }
@@ -66,7 +67,7 @@ contract JBProjectHandlesTest is Test {
         vm.prank(projectOwner);
         projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
 
-        if (hasPeriod) return;
+        if (hasInvalidChar) return;
 
         assertEq(projectHandle.ensNamePartsOf(chainId, projectId, projectOwner), nameParts);
     }
@@ -587,12 +588,12 @@ contract JBProjectHandlesTest is Test {
         }
     }
 
-    /// @notice Check if any part in the array contains a dot.
+    /// @notice Check if any part in the array contains a dot, control character, or DEL.
     function _hasDotInAny(string[] memory parts) internal pure returns (bool) {
         for (uint256 i; i < parts.length; i++) {
             bytes memory b = bytes(parts[i]);
             for (uint256 j; j < b.length; j++) {
-                if (b[j] == ".") return true;
+                if (b[j] == "." || b[j] < 0x20 || b[j] == 0x7f) return true;
             }
         }
         return false;

@@ -74,9 +74,10 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
                 revert JBProjectHandles_EmptyNamePart(parts);
             }
 
-            // Make sure no provided parts contain a dot.
+            // Make sure no provided parts contain a dot, control characters (< 0x20), or DEL (0x7F).
             for (uint256 j; j < bytes(part).length; j++) {
-                if (bytes(part)[j] == ".") {
+                bytes1 b = bytes(part)[j];
+                if (b == "." || b < 0x20 || b == 0x7f) {
                     revert JBProjectHandles_InvalidNamePart(part);
                 }
             }
