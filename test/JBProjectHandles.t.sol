@@ -13,7 +13,9 @@ import {JBProjectHandles} from "../src/JBProjectHandles.sol";
 ENS constant ENS_REGISTRY = ENS(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
 
 contract JBProjectHandlesTest is Test {
-    event SetEnsNameParts(uint256 indexed projectId, string ensName, string[] parts, address caller);
+    event SetEnsNameParts(
+        uint256 indexed chainId, uint256 indexed projectId, string ensName, string[] parts, address caller
+    );
 
     address projectOwner = address(6_942_069);
     address otherUser = address(0xBEEF);
@@ -61,7 +63,7 @@ contract JBProjectHandlesTest is Test {
 
         if (!hasInvalidChar) {
             vm.expectEmit(true, true, true, true);
-            emit SetEnsNameParts(projectId, name, nameParts, projectOwner);
+            emit SetEnsNameParts(chainId, projectId, name, nameParts, projectOwner);
         }
 
         vm.prank(projectOwner);
@@ -103,7 +105,7 @@ contract JBProjectHandlesTest is Test {
         }
 
         vm.expectEmit(true, true, true, true);
-        emit SetEnsNameParts(projectId, fullName, nameParts, projectOwner);
+        emit SetEnsNameParts(chainId, projectId, fullName, nameParts, projectOwner);
 
         vm.prank(projectOwner);
         projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
@@ -303,8 +305,8 @@ contract JBProjectHandlesTest is Test {
         assertEq(projectHandle.handleOf(chainId, projectId, projectOwner), "");
     }
 
-    /// @notice handleOf bubbles a resolver revert instead of degrading to empty.
-    function test_handleOf_revertsWhenResolverReverts() public {
+    /// @notice handleOf returns empty when resolver reverts (try-catch gracefully handles failure).
+    function test_handleOf_returnsEmptyWhenResolverReverts() public {
         uint256 projectId = jbProjects.createFor(projectOwner);
         uint256 chainId = 1;
 
@@ -326,8 +328,7 @@ contract JBProjectHandlesTest is Test {
             abi.encodeWithSignature("ResolverFailure()")
         );
 
-        vm.expectRevert(abi.encodeWithSignature("ResolverFailure()"));
-        projectHandle.handleOf(chainId, projectId, projectOwner);
+        assertEq(projectHandle.handleOf(chainId, projectId, projectOwner), "");
     }
 
     /// @notice handleOf returns empty when text record matches a different chainId.
