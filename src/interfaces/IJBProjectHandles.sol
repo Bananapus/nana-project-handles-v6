@@ -15,7 +15,9 @@ interface IJBProjectHandles {
     /// @param handle The formatted ENS handle string.
     /// @param parts The parts of the ENS name that were set.
     /// @param caller The address that set the ENS name parts.
-    event SetEnsNameParts(uint256 indexed projectId, string handle, string[] parts, address caller);
+    event SetEnsNameParts(
+        uint256 indexed chainId, uint256 indexed projectId, string handle, string[] parts, address caller
+    );
 
     //*********************************************************************//
     // ------------------------- external views -------------------------- //

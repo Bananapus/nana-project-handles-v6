@@ -86,7 +86,9 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         // Store the parts.
         _ensNamePartsOf[chainId][projectId][_msgSender()] = parts;
 
-        emit SetEnsNameParts({projectId: projectId, handle: _formatHandle(parts), parts: parts, caller: _msgSender()});
+        emit SetEnsNameParts({
+            chainId: chainId, projectId: projectId, handle: _formatHandle(parts), parts: parts, caller: _msgSender()
+        });
     }
 
     //*********************************************************************//
@@ -143,7 +145,13 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         if (textResolver == address(0)) return "";
 
         // Find the text record that the ENS name is mapped to.
-        string memory textRecord = ITextResolver(textResolver).text(hashedName, TEXT_KEY);
+        // Wrap in try-catch so that a misconfigured resolver doesn't revert the entire call.
+        string memory textRecord;
+        try ITextResolver(textResolver).text(hashedName, TEXT_KEY) returns (string memory result) {
+            textRecord = result;
+        } catch {
+            return "";
+        }
 
         // Return empty string if text record from ENS name doesn't match `projectId` and `chainId`.
         if (
