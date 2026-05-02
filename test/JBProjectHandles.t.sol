@@ -94,9 +94,9 @@ contract JBProjectHandlesTest is Test {
 
         string memory fullName = string(abi.encodePacked(name, ".", subdomain, ".", subsubdomain));
 
-        bool hasPeriod = _hasDotInAny(nameParts);
+        bool hasRejectedByte = _hasRejectedByteInAny(nameParts);
 
-        if (hasPeriod) {
+        if (hasRejectedByte) {
             // We can't predict which part will trigger the revert in fuzz, so just check it reverts.
             vm.prank(projectOwner);
             vm.expectRevert();
@@ -400,7 +400,7 @@ contract JBProjectHandlesTest is Test {
         nameParts[2] = name;
 
         // Skip inputs with dots — they'd revert in setEnsNamePartsFor.
-        if (_hasDotInAny(nameParts)) return;
+        if (_hasRejectedByteInAny(nameParts)) return;
 
         uint256 projectId = jbProjects.createFor(projectOwner);
         uint256 chainId = 1;
@@ -589,14 +589,38 @@ contract JBProjectHandlesTest is Test {
         }
     }
 
-    /// @notice Check if any part in the array contains a dot, control character, or DEL.
-    function _hasDotInAny(string[] memory parts) internal pure returns (bool) {
+    /// @notice Check if any part in the array contains a byte sequence rejected by `setEnsNamePartsFor`.
+    function _hasRejectedByteInAny(string[] memory parts) internal pure returns (bool) {
         for (uint256 i; i < parts.length; i++) {
             bytes memory b = bytes(parts[i]);
             for (uint256 j; j < b.length; j++) {
-                if (b[j] == "." || b[j] < 0x20 || b[j] == 0x7f) return true;
+                if (b[j] == "." || b[j] < 0x20 || b[j] == 0x7f || _isDisallowedUnicodeFormat(b, j)) return true;
             }
         }
+        return false;
+    }
+
+    function _isDisallowedUnicodeFormat(bytes memory input, uint256 index) internal pure returns (bool) {
+        uint256 length = input.length;
+
+        if (input[index] == 0xd8) return index + 1 < length && input[index + 1] == 0x9c;
+
+        if (input[index] == 0xe2) {
+            if (index + 2 >= length) return false;
+
+            bytes1 second = input[index + 1];
+            bytes1 third = input[index + 2];
+
+            if (second == 0x80) return (third >= 0x8b && third <= 0x8f) || (third >= 0xaa && third <= 0xae);
+            if (second == 0x81) return third >= 0xa6 && third <= 0xa9;
+
+            return false;
+        }
+
+        if (input[index] == 0xef) {
+            return index + 2 < length && input[index + 1] == 0xbb && input[index + 2] == 0xbf;
+        }
+
         return false;
     }
 }

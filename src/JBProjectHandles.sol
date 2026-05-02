@@ -55,8 +55,8 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
 
     /// @notice Point from a Juicebox project to an ENS node.
     /// @dev The `parts` ["jbx", "dao", "foo"] represents foo.dao.jbx.eth.
-    /// @dev Callers must provide ENS-normalized labels (lowercase, ENSIP-15). Non-canonical labels will be stored but
-    /// will fail to resolve in `handleOf` because `_namehash` hashes raw bytes.
+    /// @dev Callers must provide ENS-normalized labels (lowercase, ENSIP-15). Labels containing dots, ASCII control
+    /// characters, DEL, or dangerous Unicode formatting controls are rejected.
     /// @param chainId The chain ID of the network the project is on.
     /// @param projectId The ID of the project to set an ENS handle for.
     /// @param parts The parts of the ENS domain to use as the project handle, excluding the trailing .eth.
@@ -74,10 +74,13 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
                 revert JBProjectHandles_EmptyNamePart(parts);
             }
 
-            // Make sure no provided parts contain a dot, control characters (< 0x20), or DEL (0x7F).
-            for (uint256 j; j < bytes(part).length; j++) {
-                bytes1 b = bytes(part)[j];
-                if (b == "." || b < 0x20 || b == 0x7f) {
+            bytes memory partBytes = bytes(part);
+
+            // Make sure no provided parts contain a dot, control characters (< 0x20), DEL (0x7F), or Unicode
+            // formatting controls that can make verified handles render misleadingly.
+            for (uint256 j; j < partBytes.length; j++) {
+                bytes1 b = partBytes[j];
+                if (b == "." || b < 0x20 || b == 0x7f || _isDisallowedUnicodeFormat({input: partBytes, index: j})) {
                     revert JBProjectHandles_InvalidNamePart(part);
                 }
             }
@@ -200,6 +203,39 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         for (uint256 i; i < nameLength; i++) {
             namehash = keccak256(abi.encodePacked(namehash, keccak256(abi.encodePacked(ensNameParts[i]))));
         }
+    }
+
+    /// @notice Returns true if `input[index]` starts a Unicode format control that is unsafe in verified handles.
+    /// @dev Blocks common bidi controls and invisible format characters:
+    ///      U+061C, U+200B-U+200F, U+202A-U+202E, U+2066-U+2069, and U+FEFF.
+    function _isDisallowedUnicodeFormat(bytes memory input, uint256 index) internal pure returns (bool) {
+        uint256 length = input.length;
+
+        // U+061C ARABIC LETTER MARK: D8 9C.
+        if (input[index] == 0xd8) return index + 1 < length && input[index + 1] == 0x9c;
+
+        if (input[index] == 0xe2) {
+            if (index + 2 >= length) return false;
+
+            bytes1 second = input[index + 1];
+            bytes1 third = input[index + 2];
+
+            // U+200B-U+200F zero-width / direction marks: E2 80 8B-8F.
+            // U+202A-U+202E bidi embeddings / overrides: E2 80 AA-AE.
+            if (second == 0x80) return (third >= 0x8b && third <= 0x8f) || (third >= 0xaa && third <= 0xae);
+
+            // U+2066-U+2069 isolate controls: E2 81 A6-A9.
+            if (second == 0x81) return third >= 0xa6 && third <= 0xa9;
+
+            return false;
+        }
+
+        // U+FEFF zero-width no-break space / byte order mark: EF BB BF.
+        if (input[index] == 0xef) {
+            return index + 2 < length && input[index + 1] == 0xbb && input[index + 2] == 0xbf;
+        }
+
+        return false;
     }
 
     /// @notice Returns the sender, preferred to use over `msg.sender`.
