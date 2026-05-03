@@ -47,18 +47,10 @@ contract JBProjectHandlesTest is Test {
         string[] memory nameParts = new string[](1);
         nameParts[0] = name;
 
-        bool hasInvalidChar = false;
+        bool hasInvalidChar = _hasRejectedByteInAny(nameParts);
 
-        bytes memory nameBytes = bytes(name);
-        for (uint256 i = 0; i < nameBytes.length; i++) {
-            bytes1 b = nameBytes[i];
-            if (b == "." || b < 0x20 || b == 0x7f) {
-                vm.expectRevert(
-                    abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_InvalidNamePart.selector, name)
-                );
-                hasInvalidChar = true;
-                break;
-            }
+        if (hasInvalidChar) {
+            vm.expectRevert(abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_InvalidNamePart.selector, name));
         }
 
         if (!hasInvalidChar) {
@@ -582,10 +574,32 @@ contract JBProjectHandlesTest is Test {
     function _namehash(string[] memory ensName) internal pure returns (bytes32 namehash) {
         namehash = keccak256(abi.encodePacked(namehash, keccak256(abi.encodePacked("eth"))));
 
-        uint256 nameLength = ensName.length;
+        bytes memory handle = bytes(_formatHandle(ensName));
+        uint256 labelEnd = handle.length;
 
-        for (uint256 i = 0; i < nameLength; i++) {
-            namehash = keccak256(abi.encodePacked(namehash, keccak256(abi.encodePacked(ensName[i]))));
+        for (uint256 i = handle.length; i > 0; i--) {
+            if (handle[i - 1] != ".") continue;
+
+            namehash =
+                keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: i, end: labelEnd}))));
+            labelEnd = i - 1;
+        }
+
+        namehash = keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: 0, end: labelEnd}))));
+    }
+
+    function _formatHandle(string[] memory ensNameParts) internal pure returns (string memory handle) {
+        for (uint256 i = 1; i <= ensNameParts.length; i++) {
+            handle = string(abi.encodePacked(handle, ensNameParts[ensNameParts.length - i]));
+            if (i < ensNameParts.length) handle = string(abi.encodePacked(handle, "."));
+        }
+    }
+
+    function _slice(bytes memory input, uint256 start, uint256 end) internal pure returns (bytes memory output) {
+        output = new bytes(end - start);
+
+        for (uint256 i; i < output.length; i++) {
+            output[i] = input[start + i];
         }
     }
 
@@ -594,7 +608,10 @@ contract JBProjectHandlesTest is Test {
         for (uint256 i; i < parts.length; i++) {
             bytes memory b = bytes(parts[i]);
             for (uint256 j; j < b.length; j++) {
-                if (b[j] == "." || b[j] < 0x20 || b[j] == 0x7f || _isDisallowedUnicodeFormat(b, j)) return true;
+                if (
+                    b[j] < 0x20 || b[j] == 0x7f || _isDisallowedUnicodeFormat(b, j)
+                        || (b[j] == "." && (j == 0 || j == b.length - 1 || b[j - 1] == "."))
+                ) return true;
             }
         }
         return false;
