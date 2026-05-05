@@ -47,18 +47,10 @@ contract JBProjectHandlesTest is Test {
         string[] memory nameParts = new string[](1);
         nameParts[0] = name;
 
-        bool hasInvalidChar = false;
+        bool hasInvalidChar = _hasRejectedByteInAny(nameParts);
 
-        bytes memory nameBytes = bytes(name);
-        for (uint256 i = 0; i < nameBytes.length; i++) {
-            bytes1 b = nameBytes[i];
-            if (b == "." || b < 0x20 || b == 0x7f) {
-                vm.expectRevert(
-                    abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_InvalidNamePart.selector, name)
-                );
-                hasInvalidChar = true;
-                break;
-            }
+        if (hasInvalidChar) {
+            vm.expectRevert(abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_InvalidNamePart.selector, name));
         }
 
         if (!hasInvalidChar) {
@@ -94,9 +86,9 @@ contract JBProjectHandlesTest is Test {
 
         string memory fullName = string(abi.encodePacked(name, ".", subdomain, ".", subsubdomain));
 
-        bool hasPeriod = _hasDotInAny(nameParts);
+        bool hasRejectedByte = _hasRejectedByteInAny(nameParts);
 
-        if (hasPeriod) {
+        if (hasRejectedByte) {
             // We can't predict which part will trigger the revert in fuzz, so just check it reverts.
             vm.prank(projectOwner);
             vm.expectRevert();
@@ -400,7 +392,7 @@ contract JBProjectHandlesTest is Test {
         nameParts[2] = name;
 
         // Skip inputs with dots — they'd revert in setEnsNamePartsFor.
-        if (_hasDotInAny(nameParts)) return;
+        if (_hasRejectedByteInAny(nameParts)) return;
 
         uint256 projectId = jbProjects.createFor(projectOwner);
         uint256 chainId = 1;
@@ -446,7 +438,7 @@ contract JBProjectHandlesTest is Test {
     //*********************************************************************//
 
     /// @notice Verify namehash against known ENS values.
-    function test_namehash_matchesKnownValues() public {
+    function test_namehash_matchesKnownValues() public pure {
         // eth namehash = keccak256(bytes32(0), keccak256("eth"))
         bytes32 ethNode = keccak256(abi.encodePacked(bytes32(0), keccak256(abi.encodePacked("eth"))));
 
@@ -582,21 +574,70 @@ contract JBProjectHandlesTest is Test {
     function _namehash(string[] memory ensName) internal pure returns (bytes32 namehash) {
         namehash = keccak256(abi.encodePacked(namehash, keccak256(abi.encodePacked("eth"))));
 
-        uint256 nameLength = ensName.length;
+        bytes memory handle = bytes(_formatHandle(ensName));
+        uint256 labelEnd = handle.length;
 
-        for (uint256 i = 0; i < nameLength; i++) {
-            namehash = keccak256(abi.encodePacked(namehash, keccak256(abi.encodePacked(ensName[i]))));
+        for (uint256 i = handle.length; i > 0; i--) {
+            if (handle[i - 1] != ".") continue;
+
+            namehash =
+                keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: i, end: labelEnd}))));
+            labelEnd = i - 1;
+        }
+
+        namehash = keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: 0, end: labelEnd}))));
+    }
+
+    function _formatHandle(string[] memory ensNameParts) internal pure returns (string memory handle) {
+        for (uint256 i = 1; i <= ensNameParts.length; i++) {
+            handle = string(abi.encodePacked(handle, ensNameParts[ensNameParts.length - i]));
+            if (i < ensNameParts.length) handle = string(abi.encodePacked(handle, "."));
         }
     }
 
-    /// @notice Check if any part in the array contains a dot, control character, or DEL.
-    function _hasDotInAny(string[] memory parts) internal pure returns (bool) {
+    function _slice(bytes memory input, uint256 start, uint256 end) internal pure returns (bytes memory output) {
+        output = new bytes(end - start);
+
+        for (uint256 i; i < output.length; i++) {
+            output[i] = input[start + i];
+        }
+    }
+
+    /// @notice Check if any part in the array contains a byte sequence rejected by `setEnsNamePartsFor`.
+    function _hasRejectedByteInAny(string[] memory parts) internal pure returns (bool) {
         for (uint256 i; i < parts.length; i++) {
             bytes memory b = bytes(parts[i]);
             for (uint256 j; j < b.length; j++) {
-                if (b[j] == "." || b[j] < 0x20 || b[j] == 0x7f) return true;
+                if (
+                    b[j] < 0x20 || b[j] == 0x7f || _isDisallowedUnicodeFormat(b, j)
+                        || (b[j] == "." && (j == 0 || j == b.length - 1 || b[j - 1] == "."))
+                ) return true;
             }
         }
+        return false;
+    }
+
+    function _isDisallowedUnicodeFormat(bytes memory input, uint256 index) internal pure returns (bool) {
+        uint256 length = input.length;
+
+        if (input[index] == 0xd8) return index + 1 < length && input[index + 1] == 0x9c;
+
+        if (input[index] == 0xe2) {
+            if (index + 2 >= length) return false;
+
+            bytes1 second = input[index + 1];
+            bytes1 third = input[index + 2];
+
+            if (second == 0x80) return (third >= 0x8b && third <= 0x8f) || (third >= 0xaa && third <= 0xae);
+            if (second == 0x81) return third >= 0xa6 && third <= 0xa9;
+
+            return false;
+        }
+
+        if (input[index] == 0xef) {
+            return index + 2 < length && input[index + 1] == 0xbb && input[index + 2] == 0xbf;
+        }
+
         return false;
     }
 }

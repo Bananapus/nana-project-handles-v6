@@ -69,7 +69,7 @@ This repo stores ENS name parts for a project and verifies them against the ENS 
 
 - the stored parts exist but the ENS text record does not match
 - the client passes an old owner as `setter`
-- the resolver reverts
+- the resolver reverts, causing `handleOf` to return `""`
 - ENS dependencies fail and resolution becomes unavailable
 
 **Postconditions**

@@ -1,6 +1,6 @@
 {
   "name": "@bananapus/project-handles-v6",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -9,6 +9,13 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "files": [
+    "src",
+    "script",
+    "ARCHITECTURE.md",
+    "CHANGELOG.md",
+    "README.md"
+  ],
   "scripts": {
     "test": "forge test",
     "test:fork": "FOUNDRY_PROFILE=CI forge test",
@@ -17,11 +24,11 @@
     "deploy:testnets": "source ./.env && npx sphinx propose ./script/Deploy.s.sol --networks testnets"
   },
   "dependencies": {
-    "@ensdomains/ens-contracts": "^1.2.5",
-    "@openzeppelin/contracts": "^5.6.1"
+    "@ensdomains/ens-contracts": "1.7.0",
+    "@openzeppelin/contracts": "5.6.1"
   },
   "devDependencies": {
-    "@bananapus/core-v6": "^0.0.34",
-    "@sphinx-labs/plugins": "^0.33.2"
+    "@bananapus/core-v6": "0.0.39",
+    "@sphinx-labs/plugins": "0.33.3"
   }
 }

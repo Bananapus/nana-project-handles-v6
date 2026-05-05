@@ -68,6 +68,6 @@ Find issues that:
 
 ```bash
 npm install
-forge build
-forge test
+forge build --deny notes --skip "*/test/**" --skip "*/script/**"
+forge test --deny notes
 ```

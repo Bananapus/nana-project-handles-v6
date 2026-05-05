@@ -15,6 +15,6 @@
 | Symptom | Likely cause |
 |---------|-------------|
 | `handleOf` returns empty for a valid handle | ENS text record doesn't match `chainId:projectId` format exactly |
-| `handleOf` reverts | ENS registry or resolver at the computed namehash reverts |
+| `handleOf` returns empty despite stored parts | ENS registry has no resolver, the resolver reverts, or the text record is missing/mismatched |
 | `setEnsNamePartsFor` reverts unexpectedly | Name part contains a dot or is empty |
 | Handle works for one setter but not another | Frontend is querying with wrong `setter` address |
