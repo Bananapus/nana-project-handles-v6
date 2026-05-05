@@ -1,13 +1,13 @@
 {
   "name": "@bananapus/project-handles-v6",
-  "version": "0.0.6",
+  "version": "0.0.8",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Bananapus/nana-project-handles-v6"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": "25.9.0"
   },
   "files": [
     "src",

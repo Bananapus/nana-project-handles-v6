@@ -3,8 +3,9 @@ pragma solidity ^0.8.0;
 
 import {ENS} from "@ensdomains/ens-contracts/contracts/registry/ENS.sol";
 
-/// @notice Manages ENS reverse records for Juicebox projects — mapping (chainId, projectId, setter) to ENS domain
-/// handles.
+/// @notice Manages ENS handles for Juicebox projects — allows setting ENS name parts for any project and verifying
+/// them against the ENS text record. A verified handle means the ENS name's "juicebox" text record matches
+/// "chainId:projectId".
 interface IJBProjectHandles {
     //*********************************************************************//
     // ------------------------------ events ----------------------------- //
