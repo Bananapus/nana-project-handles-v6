@@ -8,8 +8,12 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 import {IJBProjectHandles} from "./interfaces/IJBProjectHandles.sol";
 
-/// @notice Allows anyone to associate a Juicebox project with an ENS name. If that ENS node has a matching text record
-/// pointing back to the project, clients treat it as the project's verified handle.
+/// @notice Allows anyone to associate a Juicebox project with an ENS name, creating a human-readable handle.
+/// Verification is bidirectional: the caller sets ENS name parts here, and the ENS name must have a text record
+/// (key: "juicebox") containing "chainId:projectId" pointing back. If both directions match, clients treat the ENS
+/// name as the project's verified handle.
+/// @dev Name parts are stored in reverse order — ["jbx", "dao", "foo"] represents foo.dao.jbx.eth. Input is
+/// validated against control characters, bidi overrides, and other Unicode formatting exploits.
 contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     //*********************************************************************//
     // --------------------------- custom errors ------------------------- //
@@ -218,9 +222,12 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         namehash = keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: 0, end: labelEnd}))));
     }
 
-    /// @notice Returns true if `input[index]` starts a Unicode format control that is unsafe in verified handles.
+    /// @notice Checks whether a byte in a handle part begins a blocked Unicode format control sequence.
     /// @dev Blocks common bidi controls and invisible format characters:
     ///      U+061C, U+200B-U+200F, U+202A-U+202E, U+2066-U+2069, and U+FEFF.
+    /// @param input The UTF-8 encoded handle part being validated.
+    /// @param index The byte offset to check as the start of a blocked UTF-8 sequence.
+    /// @return True if `input[index]` starts a blocked Unicode format control sequence.
     function _isDisallowedUnicodeFormat(bytes memory input, uint256 index) internal pure returns (bool) {
         uint256 length = input.length;
 
