@@ -225,7 +225,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     /// @notice Checks whether a byte in a handle part begins a blocked Unicode format control sequence.
     /// @dev Blocks common bidi controls and invisible format characters:
     ///      U+061C, U+200B-U+200F, U+202A-U+202E, U+2066-U+2069, and U+FEFF.
-    /// @param input The UTF-8 encoded handle part being validated.
+    /// @param input The UTF-8 encoded handle part to validate.
     /// @param index The byte offset to check as the start of a blocked UTF-8 sequence.
     /// @return True if `input[index]` starts a blocked Unicode format control sequence.
     function _isDisallowedUnicodeFormat(bytes memory input, uint256 index) internal pure returns (bool) {
