@@ -12,7 +12,7 @@ Storage is keyed by `_msgSender()`. Frontends must pass the correct `setter` (ty
 
 ### ENS dependency
 
-`handleOf` makes external calls to the ENS registry and resolver. If these revert, handle resolution fails. This is read-only — no fund loss possible.
+`handleOf` makes external calls to the ENS registry and resolver. A missing resolver or reverting resolver returns an empty handle. This is read-only — no fund loss possible.
 
 ### Dot validation
 

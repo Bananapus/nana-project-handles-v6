@@ -438,7 +438,7 @@ contract JBProjectHandlesTest is Test {
     //*********************************************************************//
 
     /// @notice Verify namehash against known ENS values.
-    function test_namehash_matchesKnownValues() public {
+    function test_namehash_matchesKnownValues() public pure {
         // eth namehash = keccak256(bytes32(0), keccak256("eth"))
         bytes32 ethNode = keccak256(abi.encodePacked(bytes32(0), keccak256(abi.encodePacked("eth"))));
 

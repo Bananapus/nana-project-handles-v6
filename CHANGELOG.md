@@ -23,8 +23,8 @@ The v5 contract had an explicit `_contextSuffixLength()` override that just call
 
 ### Dependencies
 
-- **v5:** `@bananapus/core` (runtime dependency) + `@openzeppelin/contracts ^5.2.0`
-- **v6:** `@bananapus/core-v6` (devDependency only, for tests) + `@openzeppelin/contracts ^5.6.1`
+- **v5:** `@bananapus/core` (runtime dependency) + `@openzeppelin/contracts` 5.2.x
+- **v6:** `@bananapus/core-v6` 0.0.39 (devDependency only, for tests) + `@openzeppelin/contracts` 5.6.1
 
 The core dependency moved to devDependencies because the contract itself doesn't import from core — only the test file uses `JBProjects` for mocking.
 
