@@ -59,8 +59,8 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
 
     /// @notice Point from a Juicebox project to an ENS node.
     /// @dev The `parts` ["jbx", "dao", "foo"] represents foo.dao.jbx.eth.
-    /// @dev Callers must provide ENS-normalized names (lowercase, ENSIP-15). ASCII control characters, DEL, and
-    /// dangerous Unicode formatting controls are rejected.
+    /// @dev Callers must provide ENS-normalized names (lowercase, ENSIP-15). ASCII control characters, DEL, dots,
+    /// and dangerous Unicode formatting controls are rejected.
     /// @param chainId The chain ID of the network the project is on.
     /// @param projectId The ID of the project to set an ENS handle for.
     /// @param parts The parts of the ENS domain to use as the project handle, excluding the trailing .eth.
@@ -84,10 +84,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
             // formatting controls that can make verified handles render misleadingly.
             for (uint256 j; j < partBytes.length; j++) {
                 bytes1 b = partBytes[j];
-                if (
-                    b < 0x20 || b == 0x7f || _isDisallowedUnicodeFormat({input: partBytes, index: j})
-                        || (b == "." && (j == 0 || j == partBytes.length - 1 || partBytes[j - 1] == "."))
-                ) {
+                if (b < 0x20 || b == 0x7f || b == "." || _isDisallowedUnicodeFormat({input: partBytes, index: j})) {
                     revert JBProjectHandles_InvalidNamePart(part);
                 }
             }
@@ -203,7 +200,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         // Hash the trailing "eth" suffix.
         namehash = keccak256(abi.encodePacked(namehash, keccak256(abi.encodePacked("eth"))));
 
-        // Build the visible handle first so dots inside a stored part resolve as ENS label separators too.
+        // Build the visible handle for hashing.
         bytes memory handle = bytes(_formatHandle(ensNameParts));
 
         // Get a reference to the current label's end. Labels are hashed from right to left.
