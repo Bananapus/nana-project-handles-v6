@@ -184,13 +184,10 @@ contract TestControlCharValidation is Test {
     // Dots are allowed for subdomain inputs
     // ---------------------------------------------------------------
 
-    function test_accepts_dot_separated_subdomain() public {
+    function test_rejects_dot_in_part() public {
         string memory label = "hello.world";
+        _expectInvalidNamePart(label);
         _setParts(label);
-
-        string[] memory stored = handles.ensNamePartsOf(1, 1, SETTER);
-        assertEq(stored.length, 1);
-        assertEq(keccak256(bytes(stored[0])), keccak256(bytes(label)));
     }
 
     function test_rejects_dot_only() public {

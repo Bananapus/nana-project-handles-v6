@@ -608,10 +608,7 @@ contract JBProjectHandlesTest is Test {
         for (uint256 i; i < parts.length; i++) {
             bytes memory b = bytes(parts[i]);
             for (uint256 j; j < b.length; j++) {
-                if (
-                    b[j] < 0x20 || b[j] == 0x7f || _isDisallowedUnicodeFormat(b, j)
-                        || (b[j] == "." && (j == 0 || j == b.length - 1 || b[j - 1] == "."))
-                ) return true;
+                if (b[j] < 0x20 || b[j] == 0x7f || b[j] == "." || _isDisallowedUnicodeFormat(b, j)) return true;
             }
         }
         return false;
