@@ -8,7 +8,7 @@ This repo stores ENS name parts for a project and verifies them against the ENS 
 
 - project owners who want a verifiable ENS handle
 - frontend and indexer clients resolving a project's handle for display
-- reviewers reviewing the two-way verification model
+- auditors reviewing the two-way verification model
 
 ## Key Surfaces
 

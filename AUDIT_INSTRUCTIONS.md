@@ -1,8 +1,8 @@
-# Review Guide
+# Audit Instructions
 
-This repo stores and verifies ENS-based project handles. Review it as a small identity registry whose main risks are verification mistakes and cross-setter corruption.
+This repo stores and verifies ENS-based project handles. Audit it as a small identity registry whose main risks are verification mistakes and cross-setter corruption.
 
-## Review Objective
+## Audit Objective
 
 Find issues that:
 

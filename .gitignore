@@ -28,5 +28,16 @@ backup/
 
 publish.sh
 
-# Audit artifacts
+.claude/
+
+# Audit/nemesis output
 .audit/
+.audit-logs/
+.audit-prep/
+__tmp__audit-*
+_tmp_audit-*
+AUDIT_FINDINGS.md
+NEMESIS_SCOPE.md
+run-nemesis-all.sh
+.security-worktrees/
+assets/
