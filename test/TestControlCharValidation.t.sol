@@ -213,7 +213,7 @@ contract TestControlCharValidation is Test {
         string[] memory parts = new string[](0);
 
         vm.prank(SETTER);
-        vm.expectRevert(JBProjectHandles.JBProjectHandles_NoParts.selector);
+        vm.expectRevert(abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_NoParts.selector, 1, 1, SETTER));
         handles.setEnsNamePartsFor(1, 1, parts);
     }
 

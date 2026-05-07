@@ -19,9 +19,19 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
+    /// @notice Thrown when one of the ENS name parts is empty.
+    /// @param parts The full set of name parts that was provided.
     error JBProjectHandles_EmptyNamePart(string[] parts);
+
+    /// @notice Thrown when an ENS name part contains unsupported characters.
+    /// @param part The invalid name part.
     error JBProjectHandles_InvalidNamePart(string part);
-    error JBProjectHandles_NoParts();
+
+    /// @notice Thrown when no ENS name parts are provided for a project handle.
+    /// @param chainId The chain ID the handle was being set for.
+    /// @param projectId The project ID the handle was being set for.
+    /// @param caller The account that attempted to set the handle.
+    error JBProjectHandles_NoParts(uint256 chainId, uint256 projectId, address caller);
 
     //*********************************************************************//
     // ---------------- public constant stored properties ---------------- //
@@ -69,7 +79,9 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         uint256 partsLength = parts.length;
 
         // Make sure there are ENS name parts.
-        if (partsLength == 0) revert JBProjectHandles_NoParts();
+        if (partsLength == 0) {
+            revert JBProjectHandles_NoParts({chainId: chainId, projectId: projectId, caller: _msgSender()});
+        }
 
         // Make sure no provided parts are empty or contain unsafe formatting bytes.
         for (uint256 i; i < partsLength; i++) {
@@ -184,7 +196,6 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         // Concatenate each name part.
         for (uint256 i = 1; i <= partsLength; i++) {
             // Compute the handle.
-            // slither-disable-next-line encode-packed-collision
             handle = string(abi.encodePacked(handle, ensNameParts[partsLength - i]));
 
             // Add a dot if this part isn't the last.
@@ -241,7 +252,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
             // U+202A-U+202E bidi embeddings / overrides: E2 80 AA-AE.
             if (second == 0x80) return (third >= 0x8b && third <= 0x8f) || (third >= 0xaa && third <= 0xae);
 
-            // U+2066-U+2069 isolate controls: E2 81 A6-A9.
+            // U+2066-U+2069 isolate controls: E2 81 -.
             if (second == 0x81) return third >= 0xa6 && third <= 0xa9;
 
             return false;
