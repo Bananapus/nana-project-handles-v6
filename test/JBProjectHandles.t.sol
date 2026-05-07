@@ -156,7 +156,9 @@ contract JBProjectHandlesTest is Test {
         string[] memory nameParts = new string[](0);
 
         vm.prank(projectOwner);
-        vm.expectRevert(JBProjectHandles.JBProjectHandles_NoParts.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_NoParts.selector, chainId, projectId, projectOwner)
+        );
         projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
 
         assertEq(projectHandle.ensNamePartsOf(chainId, projectId, projectOwner), new string[](0));
