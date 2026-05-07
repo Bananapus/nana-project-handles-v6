@@ -87,7 +87,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         for (uint256 i; i < partsLength; i++) {
             string memory part = parts[i];
             if (bytes(part).length == 0) {
-                revert JBProjectHandles_EmptyNamePart(parts);
+                revert JBProjectHandles_EmptyNamePart({parts: parts});
             }
 
             bytes memory partBytes = bytes(part);
@@ -97,7 +97,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
             for (uint256 j; j < partBytes.length; j++) {
                 bytes1 b = partBytes[j];
                 if (b < 0x20 || b == 0x7f || b == "." || _isDisallowedUnicodeFormat({input: partBytes, index: j})) {
-                    revert JBProjectHandles_InvalidNamePart(part);
+                    revert JBProjectHandles_InvalidNamePart({part: part});
                 }
             }
         }
