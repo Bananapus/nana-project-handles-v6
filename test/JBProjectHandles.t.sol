@@ -40,6 +40,8 @@ contract JBProjectHandlesTest is Test {
 
     function test_setEnsNamePartsFor_singleNamePart(string calldata name) public {
         vm.assume(bytes(name).length != 0);
+        // Skip "eth" — tested separately (R-2 fix).
+        vm.assume(keccak256(bytes(name)) != keccak256(bytes("eth")));
 
         uint256 projectId = jbProjects.createFor(projectOwner);
         uint256 chainId = 1;
@@ -74,6 +76,11 @@ contract JBProjectHandlesTest is Test {
         public
     {
         vm.assume(bytes(name).length > 0 && bytes(subdomain).length > 0 && bytes(subsubdomain).length > 0);
+        // Skip "eth" parts — tested separately (R-2 fix).
+        bytes32 ethHash = keccak256(bytes("eth"));
+        vm.assume(keccak256(bytes(name)) != ethHash);
+        vm.assume(keccak256(bytes(subdomain)) != ethHash);
+        vm.assume(keccak256(bytes(subsubdomain)) != ethHash);
 
         uint256 projectId = jbProjects.createFor(projectOwner);
         uint256 chainId = 1;
@@ -387,6 +394,11 @@ contract JBProjectHandlesTest is Test {
         public
     {
         vm.assume(bytes(name).length > 0 && bytes(subdomain).length > 0 && bytes(subsubdomain).length > 0);
+        // Skip "eth" parts — they'd revert in setEnsNamePartsFor (R-2 fix).
+        bytes32 ethHash = keccak256(bytes("eth"));
+        vm.assume(keccak256(bytes(name)) != ethHash);
+        vm.assume(keccak256(bytes(subdomain)) != ethHash);
+        vm.assume(keccak256(bytes(subsubdomain)) != ethHash);
 
         string[] memory nameParts = new string[](3);
         nameParts[0] = subsubdomain;
@@ -558,6 +570,146 @@ contract JBProjectHandlesTest is Test {
         vm.prank(projectOwner);
         vm.expectRevert(abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_InvalidNamePart.selector, "."));
         projectHandle.setEnsNamePartsFor(1, projectId, nameParts);
+    }
+
+    //*********************************************************************//
+    // ----------- R-1: ENS registry revert on non-ENS chains ----------- //
+    //*********************************************************************//
+
+    /// @notice handleOf returns empty when ENS_REGISTRY.resolver() reverts (chain without ENS).
+    function test_handleOf_returnsEmptyWhenEnsRegistryReverts() public {
+        uint256 projectId = jbProjects.createFor(projectOwner);
+        uint256 chainId = 1;
+
+        string[] memory nameParts = new string[](1);
+        nameParts[0] = "alice";
+
+        vm.prank(projectOwner);
+        projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
+
+        // Mock the ENS registry resolver call to revert (simulating a chain without ENS).
+        vm.mockCallRevert(
+            address(ENS_REGISTRY),
+            abi.encodeWithSelector(ENS.resolver.selector, _namehash(nameParts)),
+            abi.encodeWithSignature("Error(string)", "ENS not deployed")
+        );
+
+        // Should return empty string, not revert.
+        assertEq(projectHandle.handleOf(chainId, projectId, projectOwner), "");
+    }
+
+    /// @notice handleOf returns empty when ENS_REGISTRY has no code (empty address on non-ENS chain).
+    function test_handleOf_returnsEmptyWhenEnsRegistryHasNoCode() public {
+        // Deploy a fresh handles contract (without vm.etch on the ENS registry address).
+        JBProjectHandles freshHandles = new JBProjectHandles(address(0));
+
+        // We need to set parts directly. The ENS registry address has code from setUp's vm.etch,
+        // so we clear it to simulate a chain without ENS.
+        uint256 projectId = jbProjects.createFor(projectOwner);
+        uint256 chainId = 1;
+
+        string[] memory nameParts = new string[](1);
+        nameParts[0] = "alice";
+
+        vm.prank(projectOwner);
+        freshHandles.setEnsNamePartsFor(chainId, projectId, nameParts);
+
+        // Remove ENS registry code to simulate a chain without ENS.
+        vm.etch(address(ENS_REGISTRY), "");
+
+        // Should return empty string, not revert.
+        assertEq(freshHandles.handleOf(chainId, projectId, projectOwner), "");
+
+        // Restore ENS registry code for other tests.
+        vm.etch(address(ENS_REGISTRY), "0x69");
+    }
+
+    //*********************************************************************//
+    // ----------- R-2: "eth" name part rejection ----------------------- //
+    //*********************************************************************//
+
+    /// @notice Rejects "eth" as a single name part.
+    function test_setEnsNamePartsFor_revertsOnEthPart() public {
+        uint256 projectId = jbProjects.createFor(projectOwner);
+        uint256 chainId = 1;
+
+        string[] memory nameParts = new string[](1);
+        nameParts[0] = "eth";
+
+        vm.prank(projectOwner);
+        vm.expectRevert(abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_EthPartNotAllowed.selector, nameParts));
+        projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
+    }
+
+    /// @notice Rejects "eth" as the first element in a multi-part name.
+    function test_setEnsNamePartsFor_revertsOnEthAsFirstPart() public {
+        uint256 projectId = jbProjects.createFor(projectOwner);
+        uint256 chainId = 1;
+
+        string[] memory nameParts = new string[](2);
+        nameParts[0] = "eth";
+        nameParts[1] = "foo";
+
+        vm.prank(projectOwner);
+        vm.expectRevert(abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_EthPartNotAllowed.selector, nameParts));
+        projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
+    }
+
+    /// @notice Rejects "eth" as a middle element in a multi-part name.
+    function test_setEnsNamePartsFor_revertsOnEthAsMiddlePart() public {
+        uint256 projectId = jbProjects.createFor(projectOwner);
+        uint256 chainId = 1;
+
+        string[] memory nameParts = new string[](3);
+        nameParts[0] = "sub";
+        nameParts[1] = "eth";
+        nameParts[2] = "foo";
+
+        vm.prank(projectOwner);
+        vm.expectRevert(abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_EthPartNotAllowed.selector, nameParts));
+        projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
+    }
+
+    /// @notice Rejects "eth" as the last element in a multi-part name.
+    function test_setEnsNamePartsFor_revertsOnEthAsLastPart() public {
+        uint256 projectId = jbProjects.createFor(projectOwner);
+        uint256 chainId = 1;
+
+        string[] memory nameParts = new string[](2);
+        nameParts[0] = "foo";
+        nameParts[1] = "eth";
+
+        vm.prank(projectOwner);
+        vm.expectRevert(abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_EthPartNotAllowed.selector, nameParts));
+        projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
+    }
+
+    /// @notice Allows "ETH" (uppercase) since the check is case-sensitive and ENS names should be normalized.
+    function test_setEnsNamePartsFor_allowsUppercaseEth() public {
+        uint256 projectId = jbProjects.createFor(projectOwner);
+        uint256 chainId = 1;
+
+        string[] memory nameParts = new string[](1);
+        nameParts[0] = "ETH";
+
+        vm.prank(projectOwner);
+        projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
+
+        assertEq(projectHandle.ensNamePartsOf(chainId, projectId, projectOwner), nameParts);
+    }
+
+    /// @notice Allows "ethereum" (contains "eth" but is not exactly "eth").
+    function test_setEnsNamePartsFor_allowsEthereum() public {
+        uint256 projectId = jbProjects.createFor(projectOwner);
+        uint256 chainId = 1;
+
+        string[] memory nameParts = new string[](1);
+        nameParts[0] = "ethereum";
+
+        vm.prank(projectOwner);
+        projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
+
+        assertEq(projectHandle.ensNamePartsOf(chainId, projectId, projectOwner), nameParts);
     }
 
     //*********************************************************************//
