@@ -23,6 +23,10 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     /// @param parts The full set of name parts that was provided.
     error JBProjectHandles_EmptyNamePart(string[] parts);
 
+    /// @notice Thrown when "eth" is used as a name part, which would create an ambiguous handle.
+    /// @param parts The full set of name parts that was provided.
+    error JBProjectHandles_EthPartNotAllowed(string[] parts);
+
     /// @notice Thrown when an ENS name part contains unsupported characters.
     /// @param part The invalid name part.
     error JBProjectHandles_InvalidNamePart(string part);
@@ -88,6 +92,11 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
             string memory part = parts[i];
             if (bytes(part).length == 0) {
                 revert JBProjectHandles_EmptyNamePart({parts: parts});
+            }
+
+            // Reject "eth" as a name part to prevent ambiguous handles (e.g. "foo.eth.eth").
+            if (keccak256(bytes(part)) == keccak256(bytes("eth"))) {
+                revert JBProjectHandles_EthPartNotAllowed({parts: parts});
             }
 
             bytes memory partBytes = bytes(part);
@@ -157,8 +166,17 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         // Compute the hash of the handle.
         bytes32 hashedName = _namehash(ensNameParts);
 
-        // Get the resolver for this handle, returns address(0) if non-existing.
-        address textResolver = ENS_REGISTRY.resolver(hashedName);
+        // If the ENS registry has no code (chain without ENS), return empty string instead of reverting.
+        if (address(ENS_REGISTRY).code.length == 0) return "";
+
+        // Get the resolver for this handle.
+        // Wrapped in try-catch so that a misconfigured registry doesn't revert the entire call.
+        address textResolver;
+        try ENS_REGISTRY.resolver(hashedName) returns (address resolver) {
+            textResolver = resolver;
+        } catch {
+            return "";
+        }
 
         // If the handle is not a registered ENS, return empty string.
         if (textResolver == address(0)) return "";

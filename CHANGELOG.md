@@ -42,14 +42,15 @@ The core dependency moved to devDependencies because the contract itself doesn't
 - V6 test naming (`test_functionName_description`)
 - Removed `oldHandle` references from tests (no legacy fallback in v6)
 
-### No functional changes
+### Functional changes
 
-The contract logic is identical between v5 and v6. The same storage layout, the same validation rules, the same ENS verification flow. Changes are purely stylistic and dependency-related.
+- `setEnsNamePartsFor` now rejects `"eth"` as a name part (`JBProjectHandles_EthPartNotAllowed` error) and rejects control characters in name parts.
+- `handleOf` now wraps ENS registry calls in try/catch and performs a code-length check, so it returns `""` on chains without ENS instead of reverting.
 
 ### Breaking ABI changes
 
-None. The function signatures, events, and errors are unchanged.
+New error: `JBProjectHandles_EthPartNotAllowed`. ABIs generated from v5 will not include this error.
 
 ### Indexer impact
 
-None. Event shape is identical.
+Event shape is identical. The new error only affects write-side callers.

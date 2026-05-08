@@ -36,7 +36,7 @@ This repo stores ENS name parts for a project and verifies them against the ENS 
 
 **Failure Modes**
 
-- a name part is empty or contains a dot
+- a name part is empty, contains a dot, contains a control character, or is `"eth"`
 - labels were not normalized offchain and later never verify cleanly
 - the ENS text record is missing or points at the wrong project
 - clients later query the wrong `setter`
