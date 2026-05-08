@@ -14,9 +14,9 @@ Storage is keyed by `_msgSender()`. Frontends must pass the correct `setter` (ty
 
 `handleOf` makes external calls to the ENS registry and resolver. A missing resolver or reverting resolver returns an empty handle. This is read-only — no fund loss possible.
 
-### Dot validation
+### Name part validation
 
-The `setEnsNamePartsFor` function validates that no name parts contain dots. This prevents ENS injection where a single part like `"a.b"` could hash differently than two parts `["a", "b"]`.
+The `setEnsNamePartsFor` function validates that no name parts contain dots, control characters, or are `"eth"`. The dot check prevents ENS injection where a single part like `"a.b"` could hash differently than two parts `["a", "b"]`. The `"eth"` rejection prevents callers from embedding a TLD as a label.
 
 ### EIP-137 namehash
 

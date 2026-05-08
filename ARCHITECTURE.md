@@ -10,7 +10,7 @@
 
 ## Core Invariants
 
-- ENS name parts cannot be empty and cannot contain dots.
+- ENS name parts cannot be empty, cannot contain dots, cannot contain control characters, and cannot be `"eth"`.
 - `handleOf(...)` is read-only verification against ENS and must not mutate state.
 - Setter records are isolated from each other.
 - Stored labels are hashed exactly as provided, so caller-side ENS normalization is part of correctness.
