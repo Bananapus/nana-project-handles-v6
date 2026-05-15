@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.12 — Bump nana-core-v6 to ^0.0.53
+
+- `@bananapus/core-v6`: `0.0.39 → ^0.0.53` ([PR #145](https://github.com/Bananapus/nana-core-v6/pull/145)). The pin was previously exact (`0.0.39`); switching to caret to track minor releases.
+- All `JBRulesetMetadata` test literals patched to include `pauseCrossProjectFeeFreeInflows: false`.
+
 ## v5 to v6
 
 ### Solidity version
