@@ -184,7 +184,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         // Find the text record that the ENS name is mapped to.
         // Wrap in try-catch so that a misconfigured resolver doesn't revert the entire call.
         string memory textRecord;
-        try ITextResolver(textResolver).text(hashedName, TEXT_KEY) returns (string memory result) {
+        try ITextResolver(textResolver).text({node: hashedName, key: TEXT_KEY}) returns (string memory result) {
             textRecord = result;
         } catch {
             return "";
