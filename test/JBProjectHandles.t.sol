@@ -306,7 +306,7 @@ contract JBProjectHandlesTest is Test {
         assertEq(projectHandle.handleOf(chainId, projectId, projectOwner), "");
     }
 
-    /// @notice handleOf returns empty when resolver reverts (try-catch gracefully handles failure).
+    /// @notice handleOf returns empty when the name-owner controlled resolver reverts.
     function test_handleOf_returnsEmptyWhenResolverReverts() public {
         uint256 projectId = jbProjects.createFor(projectOwner);
         uint256 chainId = 1;

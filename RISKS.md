@@ -28,7 +28,7 @@ This file focuses on the ENS-dependency, setter-selection, and verification-mode
 - **Setter trust is external.** The contract does not know which setter is official.
 - **No delete path.** A setter cannot clear its record back to true onchain null state. It can only overwrite with different non-empty labels.
 - **ENS label normalization is offchain.** The contract rejects dots, empty labels, control characters, and `"eth"` as a name part, but it does not normalize case or Unicode.
-- **ENS failures resolve to empty.** `handleOf` returns `""` when the ENS registry has no code (e.g. on chains without ENS), when the registry call reverts, when no resolver exists, or when the resolver's `text()` call reverts. A malicious or broken ENS resolver can therefore hide an otherwise stored handle, but it cannot forge verification or corrupt another setter's record.
+- **ENS failures resolve to empty after resolver lookup.** `handleOf` treats the canonical ENS registry as trusted. It returns `""` when the ENS registry has no code (e.g. on chains without ENS), when no resolver exists, or when the resolver's `text()` call reverts or returns malformed ABI data. A malicious or broken ENS resolver can therefore hide an otherwise stored handle, but it cannot forge verification or corrupt another setter's record.
 - **Cross-chain semantics are social, not enforced.** `chainId` is only part of the lookup key and expected text-record value.
 
 ## 3. Integration Risks
@@ -41,7 +41,7 @@ This file focuses on the ENS-dependency, setter-selection, and verification-mode
 
 - `setEnsNamePartsFor` only writes to `_ensNamePartsOf[chainId][projectId][_msgSender()]`.
 - Empty arrays, empty labels, labels containing `.`, labels containing control characters, and the label `"eth"` always revert.
-- `handleOf` returns `""` when no stored parts exist, no resolver exists, the resolver text call reverts, or the `juicebox` text record does not equal `"{chainId}:{projectId}"`.
+- `handleOf` returns `""` when no stored parts exist, no resolver exists, the resolver text call reverts or returns malformed ABI data, or the `juicebox` text record does not equal `"{chainId}:{projectId}"`.
 - `_formatHandle` and `_namehash` preserve the intended label ordering.
 
 ## 5. Accepted Behaviors
