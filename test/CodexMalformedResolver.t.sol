@@ -21,7 +21,7 @@ contract CodexMalformedResolverTest is Test {
         handles = new JBProjectHandles(address(0));
     }
 
-    function test_malformedResolverReturnDataRevertsHandleOf() public {
+    function test_malformedResolverReturnDataReturnsEmptyHandle() public {
         uint256 chainId = 1;
         uint256 projectId = 123;
         string[] memory parts = new string[](1);
@@ -36,8 +36,7 @@ contract CodexMalformedResolverTest is Test {
         );
         vm.mockCall(resolver, abi.encodeWithSelector(ITextResolver.text.selector, node, handles.TEXT_KEY()), hex"");
 
-        vm.expectRevert();
-        handles.handleOf(chainId, projectId, setter);
+        assertEq(handles.handleOf(chainId, projectId, setter), "");
     }
 
     function _namehash(string[] memory ensNameParts) internal pure returns (bytes32 namehash) {

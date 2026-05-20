@@ -181,14 +181,9 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         // If the handle is not a registered ENS, return empty string.
         if (textResolver == address(0)) return "";
 
-        // Find the text record that the ENS name is mapped to.
-        // Wrap in try-catch so that a misconfigured resolver doesn't revert the entire call.
-        string memory textRecord;
-        try ITextResolver(textResolver).text({node: hashedName, key: TEXT_KEY}) returns (string memory result) {
-            textRecord = result;
-        } catch {
-            return "";
-        }
+        // Find the text record that the ENS name is mapped to. Use a low-level call so malformed resolver return data
+        // soft-fails the same way as a reverting resolver.
+        string memory textRecord = _textRecordOf({textResolver: textResolver, hashedName: hashedName});
 
         // Return empty string if text record from ENS name doesn't match `projectId` and `chainId`.
         if (
@@ -282,6 +277,35 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         }
 
         return false;
+    }
+
+    /// @notice Reads the handle text record from an ENS resolver, returning an empty string on resolver failure.
+    /// @param textResolver The ENS resolver to query.
+    /// @param hashedName The ENS namehash to query.
+    /// @return textRecord The resolver's text record, or empty if the call or ABI return data is invalid.
+    function _textRecordOf(address textResolver, bytes32 hashedName) internal view returns (string memory textRecord) {
+        (bool success, bytes memory result) =
+            textResolver.staticcall(abi.encodeWithSelector(ITextResolver.text.selector, hashedName, TEXT_KEY));
+
+        if (!success || result.length < 64) return "";
+
+        uint256 offset;
+        uint256 length;
+
+        assembly {
+            offset := mload(add(result, 32))
+            length := mload(add(result, 64))
+        }
+
+        if (offset != 32 || length > result.length - 64) return "";
+
+        bytes memory textBytes = bytes(textRecord = new string(length));
+        for (uint256 i; i < length;) {
+            textBytes[i] = result[64 + i];
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     /// @notice Returns `input[start:end]`.
