@@ -49,6 +49,15 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     ENS public constant override ENS_REGISTRY = ENS(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
 
     //*********************************************************************//
+    // ----------------------- internal constants ------------------------ //
+    //*********************************************************************//
+
+    /// @notice Maximum ENS text-record bytes copied from a resolver response.
+    /// @dev Verified records are `chainId:projectId`, so this leaves room for very large decimal IDs while bounding
+    /// name-owner-controlled resolver gas griefing.
+    uint256 internal constant _MAX_TEXT_RECORD_LENGTH = 256;
+
+    //*********************************************************************//
     // --------------------- private stored properties ------------------- //
     //*********************************************************************//
 
@@ -321,8 +330,10 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
             length := mload(add(result, 64))
         }
 
-        // A standard single-string return has offset 32. The length check keeps the manual copy in bounds.
-        if (offset != 32 || length > result.length - 64) return "";
+        // A standard single-string return has offset 32. The result-length check keeps the manual copy in bounds.
+        // The explicit cap prevents a name-owner-controlled resolver from returning a huge, valid ABI string that
+        // readers must copy before the later `chainId:projectId` equality check rejects it.
+        if (offset != 32 || length > result.length - 64 || length > _MAX_TEXT_RECORD_LENGTH) return "";
 
         bytes memory textBytes = bytes(textRecord = new string(length));
         for (uint256 i; i < length;) {
