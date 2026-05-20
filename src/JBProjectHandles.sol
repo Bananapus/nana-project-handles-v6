@@ -278,23 +278,30 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     /// @param hashedName The ENS namehash to query.
     /// @return textRecord The resolver's text record, or empty if the call or ABI return data is invalid.
     function _textRecordOf(address textResolver, bytes32 hashedName) internal view returns (string memory textRecord) {
+        // Resolver contracts are controlled by the ENS name owner, so use a low-level call instead of a typed
+        // `try/catch`. A typed return would still ABI-decode a successful-but-malformed response in this frame.
         (bool success, bytes memory result) =
             textResolver.staticcall(abi.encodeWithSelector(ITextResolver.text.selector, hashedName, TEXT_KEY));
 
+        // The ABI encoding for one dynamic `string` return needs at least an offset word and a length word.
         if (!success || result.length < 64) return "";
 
         uint256 offset;
         uint256 length;
 
         assembly {
+            // First return word: offset to the string data, measured from the start of the return payload.
             offset := mload(add(result, 32))
+            // Second return word: byte length of the returned string.
             length := mload(add(result, 64))
         }
 
+        // A standard single-string return has offset 32. The length check keeps the manual copy in bounds.
         if (offset != 32 || length > result.length - 64) return "";
 
         bytes memory textBytes = bytes(textRecord = new string(length));
         for (uint256 i; i < length;) {
+            // Copy the string bytes by hand so malformed resolver data soft-fails above instead of reverting.
             textBytes[i] = result[64 + i];
             unchecked {
                 ++i;
