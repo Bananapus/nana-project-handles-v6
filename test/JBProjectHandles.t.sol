@@ -573,30 +573,8 @@ contract JBProjectHandlesTest is Test {
     }
 
     //*********************************************************************//
-    // ----------- R-1: ENS registry revert on non-ENS chains ----------- //
+    // ----------- R-1: ENS registry absent on non-ENS chains ----------- //
     //*********************************************************************//
-
-    /// @notice handleOf returns empty when ENS_REGISTRY.resolver() reverts (chain without ENS).
-    function test_handleOf_returnsEmptyWhenEnsRegistryReverts() public {
-        uint256 projectId = jbProjects.createFor(projectOwner);
-        uint256 chainId = 1;
-
-        string[] memory nameParts = new string[](1);
-        nameParts[0] = "alice";
-
-        vm.prank(projectOwner);
-        projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
-
-        // Mock the ENS registry resolver call to revert (simulating a chain without ENS).
-        vm.mockCallRevert(
-            address(ENS_REGISTRY),
-            abi.encodeWithSelector(ENS.resolver.selector, _namehash(nameParts)),
-            abi.encodeWithSignature("Error(string)", "ENS not deployed")
-        );
-
-        // Should return empty string, not revert.
-        assertEq(projectHandle.handleOf(chainId, projectId, projectOwner), "");
-    }
 
     /// @notice handleOf returns empty when ENS_REGISTRY has no code (empty address on non-ENS chain).
     function test_handleOf_returnsEmptyWhenEnsRegistryHasNoCode() public {

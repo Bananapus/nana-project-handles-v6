@@ -169,20 +169,14 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         // If the ENS registry has no code (chain without ENS), return empty string instead of reverting.
         if (address(ENS_REGISTRY).code.length == 0) return "";
 
-        // Get the resolver for this handle.
-        // Wrapped in try-catch so that a misconfigured registry doesn't revert the entire call.
-        address textResolver;
-        try ENS_REGISTRY.resolver(hashedName) returns (address resolver) {
-            textResolver = resolver;
-        } catch {
-            return "";
-        }
+        // Get the resolver for this handle from the trusted ENS registry.
+        address textResolver = ENS_REGISTRY.resolver(hashedName);
 
         // If the handle is not a registered ENS, return empty string.
         if (textResolver == address(0)) return "";
 
-        // Find the text record that the ENS name is mapped to. Use a low-level call so malformed resolver return data
-        // soft-fails the same way as a reverting resolver.
+        // Find the text record that the ENS name is mapped to. Resolvers are name-owner controlled, so use a low-level
+        // call to soft-fail malformed return data the same way as a reverting resolver.
         string memory textRecord = _textRecordOf({textResolver: textResolver, hashedName: hashedName});
 
         // Return empty string if text record from ENS name doesn't match `projectId` and `chainId`.
