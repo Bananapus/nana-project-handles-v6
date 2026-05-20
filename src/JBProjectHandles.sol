@@ -210,33 +210,6 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         }
     }
 
-    /// @notice Returns a namehash for an ENS name.
-    /// @dev See https://eips.ethereum.org/EIPS/eip-137.
-    /// @param ensNameParts The parts of an ENS name to hash.
-    /// @return namehash The namehash for the ENS name parts.
-    function _namehash(string[] memory ensNameParts) internal pure returns (bytes32 namehash) {
-        // Hash the trailing "eth" suffix.
-        namehash = keccak256(abi.encodePacked(namehash, keccak256(abi.encodePacked("eth"))));
-
-        // Build the visible handle for hashing.
-        bytes memory handle = bytes(_formatHandle(ensNameParts));
-
-        // Get a reference to the current label's end. Labels are hashed from right to left.
-        uint256 labelEnd = handle.length;
-
-        // Hash each dot-separated label.
-        for (uint256 i = handle.length; i > 0; i--) {
-            if (handle[i - 1] != ".") continue;
-
-            namehash =
-                keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: i, end: labelEnd}))));
-            labelEnd = i - 1;
-        }
-
-        // Hash the leftmost label.
-        namehash = keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: 0, end: labelEnd}))));
-    }
-
     /// @notice Checks whether a byte in a handle part begins a blocked Unicode format control sequence.
     /// @dev Blocks common bidi controls and invisible format characters:
     ///      U+061C, U+200B-U+200F, U+202A-U+202E, U+2066-U+2069, and U+FEFF.
@@ -273,6 +246,58 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         return false;
     }
 
+    /// @notice Returns the calldata, preferred to use over `msg.data`.
+    /// @return The `msg.data` of this call.
+    function _msgData() internal view override returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }
+
+    /// @notice Returns the sender, preferred to use over `msg.sender`.
+    /// @return sender The sender address of this call.
+    function _msgSender() internal view override returns (address sender) {
+        return ERC2771Context._msgSender();
+    }
+
+    /// @notice Returns a namehash for an ENS name.
+    /// @dev See https://eips.ethereum.org/EIPS/eip-137.
+    /// @param ensNameParts The parts of an ENS name to hash.
+    /// @return namehash The namehash for the ENS name parts.
+    function _namehash(string[] memory ensNameParts) internal pure returns (bytes32 namehash) {
+        // Hash the trailing "eth" suffix.
+        namehash = keccak256(abi.encodePacked(namehash, keccak256(abi.encodePacked("eth"))));
+
+        // Build the visible handle for hashing.
+        bytes memory handle = bytes(_formatHandle(ensNameParts));
+
+        // Get a reference to the current label's end. Labels are hashed from right to left.
+        uint256 labelEnd = handle.length;
+
+        // Hash each dot-separated label.
+        for (uint256 i = handle.length; i > 0; i--) {
+            if (handle[i - 1] != ".") continue;
+
+            namehash =
+                keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: i, end: labelEnd}))));
+            labelEnd = i - 1;
+        }
+
+        // Hash the leftmost label.
+        namehash = keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: 0, end: labelEnd}))));
+    }
+
+    /// @notice Returns the sub-slice `input[start:end]`.
+    /// @param input The byte string to slice.
+    /// @param start The inclusive start index of the slice.
+    /// @param end The exclusive end index of the slice.
+    /// @return output The bytes from `start` (inclusive) to `end` (exclusive).
+    function _slice(bytes memory input, uint256 start, uint256 end) internal pure returns (bytes memory output) {
+        output = new bytes(end - start);
+
+        for (uint256 i; i < output.length; i++) {
+            output[i] = input[start + i];
+        }
+    }
+
     /// @notice Reads the handle text record from an ENS resolver, returning an empty string on resolver failure.
     /// @param textResolver The ENS resolver to query.
     /// @param hashedName The ENS namehash to query.
@@ -307,26 +332,5 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
                 ++i;
             }
         }
-    }
-
-    /// @notice Returns `input[start:end]`.
-    function _slice(bytes memory input, uint256 start, uint256 end) internal pure returns (bytes memory output) {
-        output = new bytes(end - start);
-
-        for (uint256 i; i < output.length; i++) {
-            output[i] = input[start + i];
-        }
-    }
-
-    /// @notice Returns the sender, preferred to use over `msg.sender`.
-    /// @return sender The sender address of this call.
-    function _msgSender() internal view override returns (address sender) {
-        return ERC2771Context._msgSender();
-    }
-
-    /// @notice Returns the calldata, preferred to use over `msg.data`.
-    /// @return The `msg.data` of this call.
-    function _msgData() internal view override returns (bytes calldata) {
-        return ERC2771Context._msgData();
     }
 }
