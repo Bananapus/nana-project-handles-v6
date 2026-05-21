@@ -49,6 +49,15 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     ENS public constant override ENS_REGISTRY = ENS(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
 
     //*********************************************************************//
+    // ----------------------- internal constants ------------------------ //
+    //*********************************************************************//
+
+    /// @notice Maximum ENS text-record bytes copied from a resolver response.
+    /// @dev Verified records are `chainId:projectId`, so this leaves room for very large decimal IDs while bounding
+    /// name-owner-controlled resolver gas griefing.
+    uint256 internal constant _MAX_TEXT_RECORD_LENGTH = 256;
+
+    //*********************************************************************//
     // --------------------- private stored properties ------------------- //
     //*********************************************************************//
 
@@ -169,26 +178,15 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         // If the ENS registry has no code (chain without ENS), return empty string instead of reverting.
         if (address(ENS_REGISTRY).code.length == 0) return "";
 
-        // Get the resolver for this handle.
-        // Wrapped in try-catch so that a misconfigured registry doesn't revert the entire call.
-        address textResolver;
-        try ENS_REGISTRY.resolver(hashedName) returns (address resolver) {
-            textResolver = resolver;
-        } catch {
-            return "";
-        }
+        // Get the resolver for this handle from the trusted ENS registry.
+        address textResolver = ENS_REGISTRY.resolver(hashedName);
 
         // If the handle is not a registered ENS, return empty string.
         if (textResolver == address(0)) return "";
 
-        // Find the text record that the ENS name is mapped to.
-        // Wrap in try-catch so that a misconfigured resolver doesn't revert the entire call.
-        string memory textRecord;
-        try ITextResolver(textResolver).text({node: hashedName, key: TEXT_KEY}) returns (string memory result) {
-            textRecord = result;
-        } catch {
-            return "";
-        }
+        // Find the text record that the ENS name is mapped to. Resolvers are name-owner controlled, so use a low-level
+        // call to soft-fail malformed return data the same way as a reverting resolver.
+        string memory textRecord = _textRecordOf({textResolver: textResolver, hashedName: hashedName});
 
         // Return empty string if text record from ENS name doesn't match `projectId` and `chainId`.
         if (
@@ -219,33 +217,6 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
             // Add a dot if this part isn't the last.
             if (i < partsLength) handle = string(abi.encodePacked(handle, "."));
         }
-    }
-
-    /// @notice Returns a namehash for an ENS name.
-    /// @dev See https://eips.ethereum.org/EIPS/eip-137.
-    /// @param ensNameParts The parts of an ENS name to hash.
-    /// @return namehash The namehash for the ENS name parts.
-    function _namehash(string[] memory ensNameParts) internal pure returns (bytes32 namehash) {
-        // Hash the trailing "eth" suffix.
-        namehash = keccak256(abi.encodePacked(namehash, keccak256(abi.encodePacked("eth"))));
-
-        // Build the visible handle for hashing.
-        bytes memory handle = bytes(_formatHandle(ensNameParts));
-
-        // Get a reference to the current label's end. Labels are hashed from right to left.
-        uint256 labelEnd = handle.length;
-
-        // Hash each dot-separated label.
-        for (uint256 i = handle.length; i > 0; i--) {
-            if (handle[i - 1] != ".") continue;
-
-            namehash =
-                keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: i, end: labelEnd}))));
-            labelEnd = i - 1;
-        }
-
-        // Hash the leftmost label.
-        namehash = keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: 0, end: labelEnd}))));
     }
 
     /// @notice Checks whether a byte in a handle part begins a blocked Unicode format control sequence.
@@ -284,13 +255,10 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         return false;
     }
 
-    /// @notice Returns `input[start:end]`.
-    function _slice(bytes memory input, uint256 start, uint256 end) internal pure returns (bytes memory output) {
-        output = new bytes(end - start);
-
-        for (uint256 i; i < output.length; i++) {
-            output[i] = input[start + i];
-        }
+    /// @notice Returns the calldata, preferred to use over `msg.data`.
+    /// @return The `msg.data` of this call.
+    function _msgData() internal view override returns (bytes calldata) {
+        return ERC2771Context._msgData();
     }
 
     /// @notice Returns the sender, preferred to use over `msg.sender`.
@@ -299,9 +267,81 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         return ERC2771Context._msgSender();
     }
 
-    /// @notice Returns the calldata, preferred to use over `msg.data`.
-    /// @return The `msg.data` of this call.
-    function _msgData() internal view override returns (bytes calldata) {
-        return ERC2771Context._msgData();
+    /// @notice Returns a namehash for an ENS name.
+    /// @dev See https://eips.ethereum.org/EIPS/eip-137.
+    /// @param ensNameParts The parts of an ENS name to hash.
+    /// @return namehash The namehash for the ENS name parts.
+    function _namehash(string[] memory ensNameParts) internal pure returns (bytes32 namehash) {
+        // Hash the trailing "eth" suffix.
+        namehash = keccak256(abi.encodePacked(namehash, keccak256(abi.encodePacked("eth"))));
+
+        // Build the visible handle for hashing.
+        bytes memory handle = bytes(_formatHandle(ensNameParts));
+
+        // Get a reference to the current label's end. Labels are hashed from right to left.
+        uint256 labelEnd = handle.length;
+
+        // Hash each dot-separated label.
+        for (uint256 i = handle.length; i > 0; i--) {
+            if (handle[i - 1] != ".") continue;
+
+            namehash =
+                keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: i, end: labelEnd}))));
+            labelEnd = i - 1;
+        }
+
+        // Hash the leftmost label.
+        namehash = keccak256(abi.encodePacked(namehash, keccak256(_slice({input: handle, start: 0, end: labelEnd}))));
+    }
+
+    /// @notice Returns the sub-slice `input[start:end]`.
+    /// @param input The byte string to slice.
+    /// @param start The inclusive start index of the slice.
+    /// @param end The exclusive end index of the slice.
+    /// @return output The bytes from `start` (inclusive) to `end` (exclusive).
+    function _slice(bytes memory input, uint256 start, uint256 end) internal pure returns (bytes memory output) {
+        output = new bytes(end - start);
+
+        for (uint256 i; i < output.length; i++) {
+            output[i] = input[start + i];
+        }
+    }
+
+    /// @notice Reads the handle text record from an ENS resolver, returning an empty string on resolver failure.
+    /// @param textResolver The ENS resolver to query.
+    /// @param hashedName The ENS namehash to query.
+    /// @return textRecord The resolver's text record, or empty if the call or ABI return data is invalid.
+    function _textRecordOf(address textResolver, bytes32 hashedName) internal view returns (string memory textRecord) {
+        // Resolver contracts are controlled by the ENS name owner, so use a low-level call instead of a typed
+        // `try/catch`. A typed return would still ABI-decode a successful-but-malformed response in this frame.
+        (bool success, bytes memory result) =
+            textResolver.staticcall(abi.encodeWithSelector(ITextResolver.text.selector, hashedName, TEXT_KEY));
+
+        // The ABI encoding for one dynamic `string` return needs at least an offset word and a length word.
+        if (!success || result.length < 64) return "";
+
+        uint256 offset;
+        uint256 length;
+
+        assembly {
+            // First return word: offset to the string data, measured from the start of the return payload.
+            offset := mload(add(result, 32))
+            // Second return word: byte length of the returned string.
+            length := mload(add(result, 64))
+        }
+
+        // A standard single-string return has offset 32. The result-length check keeps the manual copy in bounds.
+        // The explicit cap prevents a name-owner-controlled resolver from returning a huge, valid ABI string that
+        // readers must copy before the later `chainId:projectId` equality check rejects it.
+        if (offset != 32 || length > result.length - 64 || length > _MAX_TEXT_RECORD_LENGTH) return "";
+
+        bytes memory textBytes = bytes(textRecord = new string(length));
+        for (uint256 i; i < length;) {
+            // Copy the string bytes by hand so malformed resolver data soft-fails above instead of reverting.
+            textBytes[i] = result[64 + i];
+            unchecked {
+                ++i;
+            }
+        }
     }
 }

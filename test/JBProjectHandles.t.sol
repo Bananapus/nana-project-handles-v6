@@ -306,7 +306,7 @@ contract JBProjectHandlesTest is Test {
         assertEq(projectHandle.handleOf(chainId, projectId, projectOwner), "");
     }
 
-    /// @notice handleOf returns empty when resolver reverts (try-catch gracefully handles failure).
+    /// @notice handleOf returns empty when the name-owner controlled resolver reverts.
     function test_handleOf_returnsEmptyWhenResolverReverts() public {
         uint256 projectId = jbProjects.createFor(projectOwner);
         uint256 chainId = 1;
@@ -429,6 +429,41 @@ contract JBProjectHandlesTest is Test {
         assertEq(
             projectHandle.handleOf(chainId, projectId, projectOwner),
             string(abi.encodePacked(name, ".", subdomain, ".", subsubdomain))
+        );
+    }
+
+    /// @notice handleOf returns the verified handle when the stored ENS name has more than five parts.
+    function test_handleOf_returnsVerifiedSixPartHandle() public {
+        uint256 projectId = jbProjects.createFor(projectOwner);
+        uint256 chainId = 1;
+
+        string[] memory nameParts = new string[](6);
+        // The contract stores parts right-to-left: this resolves to alpha.beta.gamma.delta.epsilon.zeta.eth.
+        nameParts[0] = "zeta";
+        nameParts[1] = "epsilon";
+        nameParts[2] = "delta";
+        nameParts[3] = "gamma";
+        nameParts[4] = "beta";
+        nameParts[5] = "alpha";
+
+        vm.prank(projectOwner);
+        projectHandle.setEnsNamePartsFor({chainId: chainId, projectId: projectId, parts: nameParts});
+
+        vm.mockCall({
+            callee: address(ENS_REGISTRY),
+            data: abi.encodeWithSelector(ENS.resolver.selector, _namehash(nameParts)),
+            returnData: abi.encode(address(ensTextResolver))
+        });
+
+        vm.mockCall({
+            callee: address(ensTextResolver),
+            data: abi.encodeWithSelector(ITextResolver.text.selector, _namehash(nameParts), projectHandle.TEXT_KEY()),
+            returnData: abi.encode(string.concat(Strings.toString(chainId), ":", Strings.toString(projectId)))
+        });
+
+        assertEq(
+            projectHandle.handleOf({chainId: chainId, projectId: projectId, setter: projectOwner}),
+            "alpha.beta.gamma.delta.epsilon.zeta"
         );
     }
 
@@ -573,30 +608,8 @@ contract JBProjectHandlesTest is Test {
     }
 
     //*********************************************************************//
-    // ----------- R-1: ENS registry revert on non-ENS chains ----------- //
+    // ----------- R-1: ENS registry absent on non-ENS chains ----------- //
     //*********************************************************************//
-
-    /// @notice handleOf returns empty when ENS_REGISTRY.resolver() reverts (chain without ENS).
-    function test_handleOf_returnsEmptyWhenEnsRegistryReverts() public {
-        uint256 projectId = jbProjects.createFor(projectOwner);
-        uint256 chainId = 1;
-
-        string[] memory nameParts = new string[](1);
-        nameParts[0] = "alice";
-
-        vm.prank(projectOwner);
-        projectHandle.setEnsNamePartsFor(chainId, projectId, nameParts);
-
-        // Mock the ENS registry resolver call to revert (simulating a chain without ENS).
-        vm.mockCallRevert(
-            address(ENS_REGISTRY),
-            abi.encodeWithSelector(ENS.resolver.selector, _namehash(nameParts)),
-            abi.encodeWithSignature("Error(string)", "ENS not deployed")
-        );
-
-        // Should return empty string, not revert.
-        assertEq(projectHandle.handleOf(chainId, projectId, projectOwner), "");
-    }
 
     /// @notice handleOf returns empty when ENS_REGISTRY has no code (empty address on non-ENS chain).
     function test_handleOf_returnsEmptyWhenEnsRegistryHasNoCode() public {
