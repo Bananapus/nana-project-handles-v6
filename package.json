@@ -11,9 +11,7 @@
   },
   "files": [
     "src",
-    "script",
-    "ARCHITECTURE.md",
-    "README.md"
+    "script"
   ],
   "scripts": {
     "test": "forge test",
