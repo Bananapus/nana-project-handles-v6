@@ -11,10 +11,7 @@
   },
   "files": [
     "src",
-    "script",
-    "ARCHITECTURE.md",
-    "CHANGELOG.md",
-    "README.md"
+    "script"
   ],
   "scripts": {
     "test": "forge test",
