@@ -23,7 +23,7 @@ contract JBProjectHandlesControlCharTest is Test {
         handles = new JBProjectHandles(address(0));
     }
 
-    /// @notice Control characters are now rejected by setEnsNamePartsFor.
+    /// @notice setEnsNamePartsFor rejects control characters.
     function test_handleOf_revertsOnControlCharacterHandle() public {
         uint256 chainId = 1;
         uint256 projectId = 123;

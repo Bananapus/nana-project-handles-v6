@@ -40,7 +40,7 @@ contract JBProjectHandlesTest is Test {
 
     function test_setEnsNamePartsFor_singleNamePart(string calldata name) public {
         vm.assume(bytes(name).length != 0);
-        // Skip "eth" — tested separately (R-2 fix).
+        // Skip "eth"; dedicated tests cover that rejected label.
         vm.assume(keccak256(bytes(name)) != keccak256(bytes("eth")));
 
         uint256 projectId = jbProjects.createFor(projectOwner);
@@ -76,7 +76,7 @@ contract JBProjectHandlesTest is Test {
         public
     {
         vm.assume(bytes(name).length > 0 && bytes(subdomain).length > 0 && bytes(subsubdomain).length > 0);
-        // Skip "eth" parts — tested separately (R-2 fix).
+        // Skip "eth" parts; dedicated tests cover that rejected label.
         bytes32 ethHash = keccak256(bytes("eth"));
         vm.assume(keccak256(bytes(name)) != ethHash);
         vm.assume(keccak256(bytes(subdomain)) != ethHash);
@@ -394,7 +394,7 @@ contract JBProjectHandlesTest is Test {
         public
     {
         vm.assume(bytes(name).length > 0 && bytes(subdomain).length > 0 && bytes(subsubdomain).length > 0);
-        // Skip "eth" parts — they'd revert in setEnsNamePartsFor (R-2 fix).
+        // Skip "eth" parts; `setEnsNamePartsFor` rejects that label.
         bytes32 ethHash = keccak256(bytes("eth"));
         vm.assume(keccak256(bytes(name)) != ethHash);
         vm.assume(keccak256(bytes(subdomain)) != ethHash);
