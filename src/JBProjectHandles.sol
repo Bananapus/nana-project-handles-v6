@@ -88,7 +88,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     /// @param projectId The ID of the project to set an ENS handle for.
     /// @param parts The parts of the ENS domain to use as the project handle, excluding the trailing .eth.
     function setEnsNamePartsFor(uint256 chainId, uint256 projectId, string[] memory parts) external override {
-        // Get a reference to the number of parts are in the ENS name.
+        // Cache the number of ENS name parts.
         uint256 partsLength = parts.length;
 
         // Make sure there are ENS name parts.
@@ -206,7 +206,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     /// @param ensNameParts The ENS name parts to format into a handle.
     /// @return handle The formatted ENS handle.
     function _formatHandle(string[] memory ensNameParts) internal pure returns (string memory handle) {
-        // Get a reference to the number of parts are in the ENS name.
+        // Cache the number of ENS name parts.
         uint256 partsLength = ensNameParts.length;
 
         // Concatenate each name part.
