@@ -42,24 +42,24 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     // ---------------- public constant stored properties ---------------- //
     //*********************************************************************//
 
-    /// @notice The key of the ENS text record which points back to a project.
-    string public constant override TEXT_KEY = "juicebox";
-
     /// @notice The ENS registry contract address.
     /// @dev Same on Ethereum mainnet and most of its testnets.
     ENS public constant override ENS_REGISTRY = ENS(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
+
+    /// @notice The key of the ENS text record which points back to a project.
+    string public constant override TEXT_KEY = "juicebox";
 
     //*********************************************************************//
     // ----------------------- internal constants ------------------------ //
     //*********************************************************************//
 
+    /// @notice The hash of the reserved "eth" ENS name part.
+    bytes32 internal constant _ETH_NAME_PART_HASH = keccak256("eth");
+
     /// @notice Maximum ENS text-record bytes copied from a resolver response.
     /// @dev Verified records are `chainId:projectId`, so this leaves room for very large decimal IDs while bounding
     /// name-owner-controlled resolver gas griefing.
     uint256 internal constant _MAX_TEXT_RECORD_LENGTH = 256;
-
-    /// @notice The hash of the reserved "eth" ENS name part.
-    bytes32 internal constant _ETH_NAME_PART_HASH = keccak256("eth");
 
     //*********************************************************************//
     // --------------------- private stored properties ------------------- //
