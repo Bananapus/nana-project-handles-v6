@@ -775,33 +775,9 @@ contract JBProjectHandlesTest is Test {
         for (uint256 i; i < parts.length; i++) {
             bytes memory b = bytes(parts[i]);
             for (uint256 j; j < b.length; j++) {
-                if (b[j] < 0x20 || b[j] == 0x7f || b[j] == "." || _isDisallowedUnicodeFormat(b, j)) return true;
+                if (b[j] < 0x20 || b[j] == 0x7f || b[j] == ".") return true;
             }
         }
-        return false;
-    }
-
-    function _isDisallowedUnicodeFormat(bytes memory input, uint256 index) internal pure returns (bool) {
-        uint256 length = input.length;
-
-        if (input[index] == 0xd8) return index + 1 < length && input[index + 1] == 0x9c;
-
-        if (input[index] == 0xe2) {
-            if (index + 2 >= length) return false;
-
-            bytes1 second = input[index + 1];
-            bytes1 third = input[index + 2];
-
-            if (second == 0x80) return (third >= 0x8b && third <= 0x8f) || (third >= 0xaa && third <= 0xae);
-            if (second == 0x81) return third >= 0xa6 && third <= 0xa9;
-
-            return false;
-        }
-
-        if (input[index] == 0xef) {
-            return index + 2 < length && input[index + 1] == 0xbb && input[index + 2] == 0xbf;
-        }
-
         return false;
     }
 }
