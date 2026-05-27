@@ -13,7 +13,8 @@ import {IJBProjectHandles} from "./interfaces/IJBProjectHandles.sol";
 /// (key: "juicebox") containing "chainId:projectId" pointing back. If both directions match, clients treat the ENS
 /// name as the project's verified handle.
 /// @dev Name parts are stored in reverse order — ["jbx", "dao", "foo"] represents foo.dao.jbx.eth. Input is
-/// validated against control characters, bidi overrides, and other Unicode formatting exploits.
+/// validated against ASCII control characters, DEL, and dots. Unicode normalization (ENSIP-15) and any Unicode
+/// formatting-character filtering are the caller's and client's responsibility, not this contract's.
 contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     //*********************************************************************//
     // --------------------------- custom errors ------------------------- //
@@ -82,8 +83,10 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
 
     /// @notice Point from a Juicebox project to an ENS node.
     /// @dev The `parts` ["jbx", "dao", "foo"] represents foo.dao.jbx.eth.
-    /// @dev Callers must provide ENS-normalized names (lowercase, ENSIP-15). ASCII control characters, DEL, dots,
-    /// and dangerous Unicode formatting controls are rejected.
+    /// @dev Callers must provide ENS-normalized names (lowercase, ENSIP-15). ASCII control characters, DEL, and dots
+    /// are rejected. The Unicode formatting denylist this contract used to enforce was incomplete (it missed
+    /// non-bidi invisible codepoints like U+2060, the Tags block, etc.) and lent a false sense of safety. Clients
+    /// must apply ENSIP-15 normalization off-chain before trusting a returned handle.
     /// @param chainId The chain ID of the network the project is on.
     /// @param projectId The ID of the project to set an ENS handle for.
     /// @param parts The parts of the ENS domain to use as the project handle, excluding the trailing .eth.
@@ -96,7 +99,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
             revert JBProjectHandles_NoParts({chainId: chainId, projectId: projectId, caller: _msgSender()});
         }
 
-        // Make sure no provided parts are empty or contain unsafe formatting bytes.
+        // Make sure no provided parts are empty or contain unsafe ASCII bytes.
         for (uint256 i; i < partsLength; i++) {
             string memory part = parts[i];
             if (bytes(part).length == 0) {
@@ -110,11 +113,11 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
 
             bytes memory partBytes = bytes(part);
 
-            // Make sure no provided parts contain control characters (< 0x20), DEL (0x7F), or Unicode
-            // formatting controls that can make verified handles render misleadingly.
+            // Reject ASCII control characters (< 0x20), DEL (0x7F), and dots. Higher-byte Unicode handling is
+            // delegated to off-chain ENSIP-15 normalization — see contract NatSpec.
             for (uint256 j; j < partBytes.length; j++) {
                 bytes1 b = partBytes[j];
-                if (b < 0x20 || b == 0x7f || b == "." || _isDisallowedUnicodeFormat({input: partBytes, index: j})) {
+                if (b < 0x20 || b == 0x7f || b == ".") {
                     revert JBProjectHandles_InvalidNamePart({part: part});
                 }
             }
@@ -217,42 +220,6 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
             // Add a dot if this part isn't the last.
             if (i < partsLength) handle = string(abi.encodePacked(handle, "."));
         }
-    }
-
-    /// @notice Checks whether a byte in a handle part begins a blocked Unicode format control sequence.
-    /// @dev Blocks common bidi controls and invisible format characters:
-    ///      U+061C, U+200B-U+200F, U+202A-U+202E, U+2066-U+2069, and U+FEFF.
-    /// @param input The UTF-8 encoded handle part to validate.
-    /// @param index The byte offset to check as the start of a blocked UTF-8 sequence.
-    /// @return True if `input[index]` starts a blocked Unicode format control sequence.
-    function _isDisallowedUnicodeFormat(bytes memory input, uint256 index) internal pure returns (bool) {
-        uint256 length = input.length;
-
-        // U+061C ARABIC LETTER MARK: D8 9C.
-        if (input[index] == 0xd8) return index + 1 < length && input[index + 1] == 0x9c;
-
-        if (input[index] == 0xe2) {
-            if (index + 2 >= length) return false;
-
-            bytes1 second = input[index + 1];
-            bytes1 third = input[index + 2];
-
-            // U+200B-U+200F zero-width / direction marks: E2 80 8B-8F.
-            // U+202A-U+202E bidi embeddings / overrides: E2 80 AA-AE.
-            if (second == 0x80) return (third >= 0x8b && third <= 0x8f) || (third >= 0xaa && third <= 0xae);
-
-            // U+2066-U+2069 isolate controls: E2 81 -.
-            if (second == 0x81) return third >= 0xa6 && third <= 0xa9;
-
-            return false;
-        }
-
-        // U+FEFF zero-width no-break space / byte order mark: EF BB BF.
-        if (input[index] == 0xef) {
-            return index + 2 < length && input[index + 1] == 0xbb && input[index + 2] == 0xbf;
-        }
-
-        return false;
     }
 
     /// @notice Returns the calldata, preferred to use over `msg.data`.
