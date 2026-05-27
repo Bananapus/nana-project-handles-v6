@@ -1,13 +1,13 @@
 {
   "name": "@bananapus/project-handles-v6",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Bananapus/nana-project-handles-v6"
   },
   "engines": {
-    "node": "25.9.0"
+    "node": ">=20.0.0"
   },
   "files": [
     "foundry.toml",
