@@ -14,27 +14,13 @@ contract JBProjectHandlesUnicodeSpoofTest is Test {
         handles = new JBProjectHandles(address(0));
     }
 
-    function test_setEnsNamePartsFor_rejectsBidiOverrideCharacter() public {
-        string[] memory parts = new string[](1);
-        parts[0] = unicode"safe\u202Eevil";
-
-        vm.prank(SETTER);
-        vm.expectRevert(abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_InvalidNamePart.selector, parts[0]));
-        handles.setEnsNamePartsFor({chainId: 1, projectId: 1, parts: parts});
-    }
-
-    function test_handleOf_cannotReturnVerifiedBidiSpoofedHandle() public {
-        string[] memory parts = new string[](2);
-        parts[0] = unicode"safe\u202Eevil";
-        parts[1] = "dao";
-
-        vm.prank(SETTER);
-        vm.expectRevert(abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_InvalidNamePart.selector, parts[0]));
-        handles.setEnsNamePartsFor({chainId: 1, projectId: 1, parts: parts});
-    }
-
-    function test_setEnsNamePartsFor_rejectsEveryBlockedUnicodeFormatCodepoint() public {
-        string[16] memory blocked = [
+    /// @notice Unicode formatting characters (bidi overrides, zero-width joiners, BOM, etc.) are intentionally
+    /// NOT rejected on-chain. The previous denylist was incomplete (missed non-bidi invisibles like U+2060, the
+    /// Tags block, etc.) and lent a false sense of safety. Clients must apply ENSIP-15 normalization off-chain
+    /// before trusting `handleOf`'s output. This regression test pins that "no filter" behavior so a future
+    /// re-introduction of a partial filter is caught.
+    function test_setEnsNamePartsFor_acceptsUnicodeFormattingCharacters() public {
+        string[17] memory previouslyBlocked = [
             unicode"safe\u061Cevil",
             unicode"safe\u200Bevil",
             unicode"safe\u200Cevil",
@@ -50,13 +36,18 @@ contract JBProjectHandlesUnicodeSpoofTest is Test {
             unicode"safe\u2067evil",
             unicode"safe\u2068evil",
             unicode"safe\u2069evil",
-            unicode"safe\uFEFFevil"
+            unicode"safe\uFEFFevil",
+            unicode"safe\u2060evil" // U+2060 was missed by the old denylist \u2014 same equivalence class.
         ];
 
-        for (uint256 i; i < blocked.length;) {
-            // Each label contains one blocked Unicode formatting control. These characters can alter display order
-            // or render invisibly, so even one occurrence must make the handle un-settable.
-            _expectInvalidNamePart({part: blocked[i]});
+        for (uint256 i; i < previouslyBlocked.length;) {
+            string[] memory parts = new string[](1);
+            parts[0] = previouslyBlocked[i];
+
+            vm.prank(SETTER);
+            handles.setEnsNamePartsFor({chainId: 1, projectId: 100 + i, parts: parts});
+
+            assertEq(handles.ensNamePartsOf({chainId: 1, projectId: 100 + i, setter: SETTER}), parts);
 
             unchecked {
                 ++i;
@@ -64,8 +55,8 @@ contract JBProjectHandlesUnicodeSpoofTest is Test {
         }
     }
 
-    function test_setEnsNamePartsFor_allowsAdjacentUnicodeBoundaryCodepoints() public {
-        string[6] memory allowed = [
+    function test_setEnsNamePartsFor_acceptsAdjacentUnicodeBoundaryCodepoints() public {
+        string[6] memory previouslyAllowed = [
             unicode"safe\u200Aokay",
             unicode"safe\u2010okay",
             unicode"safe\u2029okay",
@@ -74,12 +65,10 @@ contract JBProjectHandlesUnicodeSpoofTest is Test {
             unicode"safe\u206Aokay"
         ];
 
-        for (uint256 i; i < allowed.length;) {
+        for (uint256 i; i < previouslyAllowed.length;) {
             string[] memory parts = new string[](1);
-            parts[0] = allowed[i];
+            parts[0] = previouslyAllowed[i];
 
-            // These are the nearest codepoints outside the blocked ranges. Keeping them accepted proves the filter is
-            // not rejecting entire UTF-8 byte prefixes around legitimate ENS-normalized labels.
             vm.prank(SETTER);
             handles.setEnsNamePartsFor({chainId: 1, projectId: 10 + i, parts: parts});
 
@@ -89,14 +78,5 @@ contract JBProjectHandlesUnicodeSpoofTest is Test {
                 ++i;
             }
         }
-    }
-
-    function _expectInvalidNamePart(string memory part) internal {
-        string[] memory parts = new string[](1);
-        parts[0] = part;
-
-        vm.prank(SETTER);
-        vm.expectRevert(abi.encodeWithSelector(JBProjectHandles.JBProjectHandles_InvalidNamePart.selector, part));
-        handles.setEnsNamePartsFor({chainId: 1, projectId: 1, parts: parts});
     }
 }
