@@ -58,6 +58,9 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     /// name-owner-controlled resolver gas griefing.
     uint256 internal constant _MAX_TEXT_RECORD_LENGTH = 256;
 
+    /// @notice The hash of the reserved "eth" ENS name part.
+    bytes32 internal constant _ETH_NAME_PART_HASH = keccak256("eth");
+
     //*********************************************************************//
     // --------------------- private stored properties ------------------- //
     //*********************************************************************//
@@ -102,16 +105,16 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         // Make sure no provided parts are empty or contain unsafe ASCII bytes.
         for (uint256 i; i < partsLength; i++) {
             string memory part = parts[i];
-            if (bytes(part).length == 0) {
+            bytes memory partBytes = bytes(part);
+
+            if (partBytes.length == 0) {
                 revert JBProjectHandles_EmptyNamePart({parts: parts});
             }
 
             // Reject "eth" as a name part to prevent ambiguous handles (e.g. "foo.eth.eth").
-            if (keccak256(bytes(part)) == keccak256(bytes("eth"))) {
+            if (keccak256(partBytes) == _ETH_NAME_PART_HASH) {
                 revert JBProjectHandles_EthPartNotAllowed({parts: parts});
             }
-
-            bytes memory partBytes = bytes(part);
 
             // Reject ASCII control characters (< 0x20), DEL (0x7F), and dots. Higher-byte Unicode handling is
             // delegated to off-chain ENSIP-15 normalization — see contract NatSpec.
