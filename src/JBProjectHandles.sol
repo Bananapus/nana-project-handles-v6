@@ -42,16 +42,19 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     // ---------------- public constant stored properties ---------------- //
     //*********************************************************************//
 
-    /// @notice The key of the ENS text record which points back to a project.
-    string public constant override TEXT_KEY = "juicebox";
-
     /// @notice The ENS registry contract address.
     /// @dev Same on Ethereum mainnet and most of its testnets.
     ENS public constant override ENS_REGISTRY = ENS(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
 
+    /// @notice The key of the ENS text record which points back to a project.
+    string public constant override TEXT_KEY = "juicebox";
+
     //*********************************************************************//
     // ----------------------- internal constants ------------------------ //
     //*********************************************************************//
+
+    /// @notice The hash of the reserved "eth" ENS name part.
+    bytes32 internal constant _ETH_NAME_PART_HASH = keccak256("eth");
 
     /// @notice Maximum ENS text-record bytes copied from a resolver response.
     /// @dev Verified records are `chainId:projectId`, so this leaves room for very large decimal IDs while bounding
@@ -102,16 +105,16 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
         // Make sure no provided parts are empty or contain unsafe ASCII bytes.
         for (uint256 i; i < partsLength; i++) {
             string memory part = parts[i];
-            if (bytes(part).length == 0) {
+            bytes memory partBytes = bytes(part);
+
+            if (partBytes.length == 0) {
                 revert JBProjectHandles_EmptyNamePart({parts: parts});
             }
 
             // Reject "eth" as a name part to prevent ambiguous handles (e.g. "foo.eth.eth").
-            if (keccak256(bytes(part)) == keccak256(bytes("eth"))) {
+            if (keccak256(partBytes) == _ETH_NAME_PART_HASH) {
                 revert JBProjectHandles_EthPartNotAllowed({parts: parts});
             }
-
-            bytes memory partBytes = bytes(part);
 
             // Reject ASCII control characters (< 0x20), DEL (0x7F), and dots. Higher-byte Unicode handling is
             // delegated to off-chain ENSIP-15 normalization — see contract NatSpec.
