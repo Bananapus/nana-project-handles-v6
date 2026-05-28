@@ -2,12 +2,15 @@
 
 `@bananapus/project-handles-v6` is a permissionless ENS handle registry for Juicebox projects. It stores ENS name parts by `(chainId, projectId, setter)` and only returns a handle when the ENS text record points back to that same project.
 
-Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)  
-User journeys: [USER_JOURNEYS.md](./USER_JOURNEYS.md)  
-Skills: [SKILLS.md](./SKILLS.md)  
-Risks: [RISKS.md](./RISKS.md)  
-Administration: [ADMINISTRATION.md](./ADMINISTRATION.md)  
-Audit instructions: [AUDIT_INSTRUCTIONS.md](./AUDIT_INSTRUCTIONS.md)
+## Documentation
+
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — contract design and storage shape
+- [USER_JOURNEYS.md](./USER_JOURNEYS.md) — setter, reader, and frontend flows
+- [SKILLS.md](./SKILLS.md) — integration patterns and conventions
+- [RISKS.md](./RISKS.md) — known trust and liveness assumptions
+- [INVARIANTS.md](./INVARIANTS.md) — properties the contract upholds
+- [ADMINISTRATION.md](./ADMINISTRATION.md) — deployment and operational notes
+- [AUDIT_INSTRUCTIONS.md](./AUDIT_INSTRUCTIONS.md) — scope and guidance for auditors
 
 ## Overview
 
