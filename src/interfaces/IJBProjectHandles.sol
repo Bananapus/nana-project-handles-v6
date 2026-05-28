@@ -51,8 +51,8 @@ interface IJBProjectHandles {
     //*********************************************************************//
 
     /// @notice Point from a Juicebox project to an ENS node.
-    /// @dev Callers must provide ENS-normalized names (lowercase, ENSIP-15). ASCII control characters, DEL, and
-    /// dangerous Unicode formatting controls are rejected.
+    /// @dev Callers must provide ENS-normalized names (lowercase, ENSIP-15). ASCII control characters, DEL, and dots
+    /// are rejected. Unicode normalization (ENSIP-15) is the caller's and client's responsibility, not this contract's.
     /// @param chainId The chain ID of the network the project is on.
     /// @param projectId The ID of the project to set an ENS handle for.
     /// @param parts The parts of the ENS domain to use as the project handle, excluding the trailing .eth.
