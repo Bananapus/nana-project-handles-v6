@@ -1,7 +1,5 @@
 # Invariants of `nana-project-handles-v6`
 
-Last updated: 2026-05-28.
-
 Scope: the `JBProjectHandles` contract — a permissionless ENS handle registry for Juicebox projects. It stores ENS name parts keyed by `(chainId, projectId, setter)` and only returns a "verified" handle when the ENS name's `juicebox` text record points back to that same project.
 
 | Item | Detail |
