@@ -8,9 +8,9 @@ import {ITextResolver} from "@ensdomains/ens-contracts/contracts/resolvers/profi
 
 import {JBProjectHandles} from "../src/JBProjectHandles.sol";
 
-ENS constant CODEX_ENS_REGISTRY = ENS(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
+ENS constant ENS_REGISTRY = ENS(0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e);
 
-contract CodexProjectHandlesHarness is JBProjectHandles {
+contract MalformedResolverHarness is JBProjectHandles {
     constructor() JBProjectHandles(address(0)) {}
 
     function textRecordOf(address textResolver, bytes32 hashedName) external view returns (string memory) {
@@ -18,18 +18,18 @@ contract CodexProjectHandlesHarness is JBProjectHandles {
     }
 }
 
-contract CodexMalformedResolverTest is Test {
+contract MalformedResolverTest is Test {
     JBProjectHandles internal handles;
-    CodexProjectHandlesHarness internal harness;
+    MalformedResolverHarness internal harness;
 
     address internal setter = address(0xBEEF);
     address internal resolver = address(0xCAFE);
 
     function setUp() public {
-        vm.etch(address(CODEX_ENS_REGISTRY), "0x69");
+        vm.etch(address(ENS_REGISTRY), "0x69");
         vm.etch(resolver, "0x69");
         handles = new JBProjectHandles(address(0));
-        harness = new CodexProjectHandlesHarness();
+        harness = new MalformedResolverHarness();
     }
 
     function test_malformedResolverReturnDataReturnsEmptyHandle() public {
@@ -43,7 +43,7 @@ contract CodexMalformedResolverTest is Test {
 
         bytes32 node = _namehash(parts);
         vm.mockCall({
-            callee: address(CODEX_ENS_REGISTRY),
+            callee: address(ENS_REGISTRY),
             data: abi.encodeWithSelector(ENS.resolver.selector, node),
             returnData: abi.encode(resolver)
         });
