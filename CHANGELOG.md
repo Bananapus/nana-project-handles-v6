@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.25 — Raise dependency floors; document conventions
+
+- Raise dependency floors to the latest published versions (`@bananapus/core-v6`: `^0.0.72 → ^0.0.78`).
+- Document NatSpec, comment, and lint conventions in `STYLE_GUIDE.md`.
+
 ## 0.0.24 — Bound the resolver read in `handleOf`
 
 - `_textRecordOf` now reads the ENS resolver through a low-level call that (1) forwards only a bounded gas stipend (`_RESOLVER_GAS_LIMIT = 100_000`) and (2) copies at most `64 + _MAX_TEXT_RECORD_LENGTH` bytes of the response. Previously the resolver response was copied in full before the length cap was applied, so a name-owner-controlled resolver could return a huge response and force `handleOf` to run out of gas (or revert) instead of soft-failing to an empty handle. Well-behaved resolvers resolve exactly as before.
