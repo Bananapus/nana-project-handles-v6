@@ -28,7 +28,7 @@ This file focuses on the ENS-dependency, setter-selection, and verification-mode
 - **Setter trust is external.** The contract does not know which setter is official.
 - **No delete path.** A setter cannot clear its record back to true onchain null state. It can only overwrite with different non-empty labels.
 - **ENS label normalization is offchain.** The contract rejects dots, empty labels, control characters, and `"eth"` as a name part, but it does not normalize case or Unicode.
-- **ENS failures resolve to empty after resolver lookup.** `handleOf` treats the canonical ENS registry as trusted. It returns `""` when the ENS registry has no code (e.g. on chains without ENS), when no resolver exists, or when the resolver's `text()` call reverts or returns malformed ABI data. Resolver text records are also capped at 256 bytes, far above the expected `chainId:projectId` value, so overlong resolver-controlled records soft-fail to `""` instead of forcing unbounded onchain copies. A malicious or broken ENS resolver can therefore hide an otherwise stored handle, but it cannot forge verification or corrupt another setter's record.
+- **ENS failures resolve to empty after resolver lookup.** `handleOf` treats the canonical ENS registry as trusted. It returns `""` when the ENS registry has no code (e.g. on chains without ENS), when no resolver exists, or when the resolver's `text()` call reverts or returns malformed ABI data. The resolver read is also bounded so a name-owner-controlled resolver cannot grief readers: the call forwards only a 100,000-gas stipend and copies at most 256 text-record bytes from the response, far above the expected `chainId:projectId` value. An overlong or expensive resolver response therefore soft-fails to `""` instead of forcing unbounded onchain copies or running the read out of gas. A malicious or broken ENS resolver can hide an otherwise stored handle, but it cannot forge verification or corrupt another setter's record.
 - **Cross-chain semantics are social, not enforced.** `chainId` is only part of the lookup key and expected text-record value.
 
 ## 3. Integration Risks
@@ -41,7 +41,7 @@ This file focuses on the ENS-dependency, setter-selection, and verification-mode
 
 - `setEnsNamePartsFor` only writes to `_ensNamePartsOf[chainId][projectId][_msgSender()]`.
 - Empty arrays, empty labels, labels containing `.`, labels containing control characters, and the label `"eth"` always revert.
-- `handleOf` returns `""` when no stored parts exist, no resolver exists, the resolver text call reverts or returns malformed ABI data, or the `juicebox` text record does not equal `"{chainId}:{projectId}"`.
+- `handleOf` returns `""` when no stored parts exist, no resolver exists, the resolver text call reverts, exceeds its gas stipend, or returns malformed/oversized ABI data, or the `juicebox` text record does not equal `"{chainId}:{projectId}"`.
 - `_formatHandle` and `_namehash` preserve the intended label ordering.
 
 ## 5. Accepted Behaviors

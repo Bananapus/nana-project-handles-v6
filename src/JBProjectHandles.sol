@@ -61,6 +61,12 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     /// name-owner-controlled resolver gas griefing.
     uint256 internal constant _MAX_TEXT_RECORD_LENGTH = 256;
 
+    /// @notice Gas stipend forwarded to a name-owner-controlled resolver when reading a handle text record.
+    /// @dev A standard ENS `text(node, key)` read costs a few thousand gas; this leaves generous headroom for
+    /// proxy/upgradeable resolvers while preventing a hostile resolver from burning the whole read's gas budget.
+    /// Combined with the bounded return-data copy, a hostile resolver can only ever soft-fail the lookup to `""`.
+    uint256 internal constant _RESOLVER_GAS_LIMIT = 100_000;
+
     //*********************************************************************//
     // --------------------- private stored properties ------------------- //
     //*********************************************************************//
@@ -284,30 +290,60 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     function _textRecordOf(address textResolver, bytes32 hashedName) internal view returns (string memory textRecord) {
         // Resolver contracts are controlled by the ENS name owner, so use a low-level call instead of a typed
         // `try/catch`. A typed return would still ABI-decode a successful-but-malformed response in this frame.
-        (bool success, bytes memory result) =
-            textResolver.staticcall(abi.encodeWithSelector(ITextResolver.text.selector, hashedName, TEXT_KEY));
+        bytes memory callData = abi.encodeWithSelector(ITextResolver.text.selector, hashedName, TEXT_KEY);
 
-        // The ABI encoding for one dynamic `string` return needs at least an offset word and a length word.
-        if (!success || result.length < 64) return "";
+        // Copy at most the offset word, the length word, and `_MAX_TEXT_RECORD_LENGTH` string bytes from the response.
+        // A name-owner-controlled resolver could return an arbitrarily large response; copying it all before applying
+        // the cap would let the resolver drive this read's gas (memory expansion grows with return-data size). Bounding
+        // the copy at the call site keeps a hostile, oversized response from exhausting gas or reverting the lookup.
+        uint256 maxCopy = 64 + _MAX_TEXT_RECORD_LENGTH;
 
+        bool success;
+        uint256 returnSize;
         uint256 offset;
         uint256 length;
+        bytes memory result;
+
+        // Forward only a bounded gas stipend. A standard `text` read is cheap, so this caps a hostile resolver's
+        // ability to burn this read's gas. `gas()` is forwarded only when it is already below the stipend (EIP-150
+        // would clamp it anyway), so a well-behaved resolver never sees less gas than it does today.
+        uint256 stipend = gasleft();
+        if (stipend > _RESOLVER_GAS_LIMIT) stipend = _RESOLVER_GAS_LIMIT;
 
         assembly {
-            // First return word: offset to the string data, measured from the start of the return payload.
-            offset := mload(add(result, 32))
-            // Second return word: byte length of the returned string.
-            length := mload(add(result, 64))
+            // staticcall with a zero output region so the EVM does not auto-copy the full response into memory.
+            success := staticcall(stipend, textResolver, add(callData, 32), mload(callData), 0, 0)
+
+            // The total size the resolver actually returned, even though only `maxCopy` bytes are copied below.
+            returnSize := returndatasize()
+
+            // Allocate a scratch buffer and copy at most `maxCopy` bytes of the response into it.
+            result := mload(0x40)
+            let copySize := returnSize
+            if gt(copySize, maxCopy) { copySize := maxCopy }
+            mstore(0x40, add(result, add(copySize, 32)))
+            mstore(result, copySize)
+            returndatacopy(add(result, 32), 0, copySize)
+
+            // First two return words: the offset to the string data and its byte length.
+            if iszero(lt(copySize, 64)) {
+                offset := mload(add(result, 32))
+                length := mload(add(result, 64))
+            }
         }
 
-        // A standard single-string return has offset 32. The result-length check keeps the manual copy in bounds.
-        // The explicit cap prevents a name-owner-controlled resolver from returning a huge, valid ABI string that
-        // readers must copy before the later `chainId:projectId` equality check rejects it.
-        if (offset != 32 || length > result.length - 64 || length > _MAX_TEXT_RECORD_LENGTH) return "";
+        // The ABI encoding for one dynamic `string` return needs at least an offset word and a length word.
+        if (!success || returnSize < 64) return "";
+
+        // A standard single-string return has offset 32. Cap the length, and require the resolver to have actually
+        // returned the bytes it claims (`returnSize >= 64 + length`) so a truncated response soft-fails too. The cap
+        // prevents a name-owner-controlled resolver from returning a huge, valid ABI string that readers must copy
+        // before the later `chainId:projectId` equality check rejects it.
+        if (offset != 32 || length > _MAX_TEXT_RECORD_LENGTH || returnSize < 64 + length) return "";
 
         bytes memory textBytes = bytes(textRecord = new string(length));
         for (uint256 i; i < length;) {
-            // Copy the string bytes by hand so malformed resolver data soft-fails above instead of reverting.
+            // Copy the string bytes by hand from the bounded buffer; malformed resolver data soft-fails above.
             textBytes[i] = result[64 + i];
             unchecked {
                 ++i;
