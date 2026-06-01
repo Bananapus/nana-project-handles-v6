@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.24 — Bound the resolver read in `handleOf`
+
+- `_textRecordOf` now reads the ENS resolver through a low-level call that (1) forwards only a bounded gas stipend (`_RESOLVER_GAS_LIMIT = 100_000`) and (2) copies at most `64 + _MAX_TEXT_RECORD_LENGTH` bytes of the response. Previously the resolver response was copied in full before the length cap was applied, so a name-owner-controlled resolver could return a huge response and force `handleOf` to run out of gas (or revert) instead of soft-failing to an empty handle. Well-behaved resolvers resolve exactly as before.
+
 ## 0.0.12 — Bump nana-core-v6 to ^0.0.53
 
 - `@bananapus/core-v6`: `0.0.39 → ^0.0.53` ([PR #145](https://github.com/Bananapus/nana-core-v6/pull/145)). The pin was previously exact (`0.0.39`); switching to caret to track minor releases.
