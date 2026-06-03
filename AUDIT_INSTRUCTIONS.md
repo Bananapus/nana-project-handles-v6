@@ -2,7 +2,7 @@
 
 This repo stores and verifies ENS-based project handles. Audit it as a small identity registry whose main risks are verification mistakes and cross-setter corruption.
 
-## Audit Objective
+## Audit objective
 
 There is a billion dollars of well-meaning projects' money in the Juicebox Money Engine, growing exponentially. Your job is to hack it before anyone else. Whoever hacks it first saves/steals the money, and you are obsessed with being this winner, while also being a steward of the protocol and wanting it to keep growing safely.
 
@@ -22,30 +22,30 @@ Suggestions of where to look:
 | `src/interfaces/IJBProjectHandles.sol` | Interface: events, views, transactions |
 | `script/Deploy.s.sol` | Deployment |
 
-## Start Here
+## Start here
 
 1. `src/JBProjectHandles.sol`
 2. `_namehash` and handle verification logic
 3. `script/Deploy.s.sol`
 
-## Security Model
+## Security model
 
 `JBProjectHandles` stores ENS name parts per `(chainId, projectId, setter)` and verifies handles by querying ENS text records. It is permissionless. Anyone can store records, and verification happens only at read time.
 
-## Roles And Privileges
+## Roles and privileges
 
 | Role | Powers | How constrained |
 |------|--------|-----------------|
 | Setter | Store ENS name parts for its own namespace | Must not modify another setter's records |
 | Trusted forwarder | Define `_msgSender()` in meta-tx flows | Must not let callers spoof another setter |
 
-## Integration Assumptions
+## Integration assumptions
 
 | Dependency | Assumption | What breaks if wrong |
 |------------|------------|----------------------|
 | ENS resolver and text records | Return the intended `chainId:projectId` binding | Handle verification becomes false-positive or false-negative |
 
-## Critical Invariants
+## Critical invariants
 
 1. Setter isolation
    `_ensNamePartsOf[chainId][projectId][setter]` can only be written when `_msgSender() == setter`.
@@ -59,7 +59,7 @@ Suggestions of where to look:
 4. Namehash correctness
    `_namehash` must produce EIP-137 compliant hashes.
 
-## Attack Surfaces
+## Attack surfaces
 
 - cross-setter writes to the `(chainId, projectId, setter)` namespace
 - ERC-2771 sender handling

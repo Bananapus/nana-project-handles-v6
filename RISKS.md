@@ -16,13 +16,13 @@ This file focuses on the ENS-dependency, setter-selection, and verification-mode
 | P1 | Setter-selection mistakes | Different setters can publish different candidate handles for the same project. | Frontends must choose an explicit trust policy. |
 | P2 | Non-normalized labels and stale ENS ownership | The contract stores raw labels and verifies only through the text-record round trip. | ENSIP-15 normalization offchain and periodic resolver rechecks. |
 
-## 1. Trust Assumptions
+## 1. Trust assumptions
 
 - **ENS registry.** `handleOf` trusts the canonical ENS registry to return the correct resolver.
 - **Resolver behavior.** `handleOf` trusts the resolver's `text(namehash, "juicebox")` response.
 - **Trusted forwarder.** Writes are keyed by `_msgSender()` through `ERC2771Context`. A compromised forwarder can write into another account's setter slot.
 
-## 2. Known Risks
+## 2. Known risks
 
 - **Permissionless writes.** Anyone can call `setEnsNamePartsFor` for any `(chainId, projectId)`. This is intentional. Verification happens later in `handleOf`.
 - **Setter trust is external.** The contract does not know which setter is official.
@@ -31,20 +31,20 @@ This file focuses on the ENS-dependency, setter-selection, and verification-mode
 - **ENS failures resolve to empty after resolver lookup.** `handleOf` treats the canonical ENS registry as trusted. It returns `""` when the ENS registry has no code (e.g. on chains without ENS), when no resolver exists, or when the resolver's `text()` call reverts or returns malformed ABI data. The resolver read is also bounded so a name-owner-controlled resolver cannot grief readers: the call forwards only a 100,000-gas stipend and copies at most 256 text-record bytes from the response, far above the expected `chainId:projectId` value. An overlong or expensive resolver response therefore soft-fails to `""` instead of forcing unbounded onchain copies or running the read out of gas. A malicious or broken ENS resolver can hide an otherwise stored handle, but it cannot forge verification or corrupt another setter's record.
 - **Cross-chain semantics are social, not enforced.** `chainId` is only part of the lookup key and expected text-record value.
 
-## 3. Integration Risks
+## 3. Integration risks
 
 - **Ownership changes do not migrate setter slots.** If a project changes owners, the old owner's entry remains stored.
 - **Bots must not treat stored parts as verified output.** `ensNamePartsOf(...)` returns what a setter stored. `handleOf(...)` is the verification surface.
 - **Read-only metadata can still be availability-sensitive.** A UI that blocks on `handleOf` can degrade when ENS or the resolver is unavailable.
 
-## 4. Invariants to Verify
+## 4. Invariants to verify
 
 - `setEnsNamePartsFor` only writes to `_ensNamePartsOf[chainId][projectId][_msgSender()]`.
 - Empty arrays, empty labels, labels containing `.`, labels containing control characters, and the label `"eth"` always revert.
 - `handleOf` returns `""` when no stored parts exist, no resolver exists, the resolver text call reverts, exceeds its gas stipend, or returns malformed/oversized ABI data, or the `juicebox` text record does not equal `"{chainId}:{projectId}"`.
 - `_formatHandle` and `_namehash` preserve the intended label ordering.
 
-## 5. Accepted Behaviors
+## 5. Accepted behaviors
 
 ### 5.1 Multiple competing setters are allowed
 

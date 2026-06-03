@@ -24,13 +24,13 @@ Its trust model is simple:
 
 Use this repo when the question is "what ENS handle does this project claim?" Do not use it for project ownership, permissions, or protocol accounting.
 
-## Key Contract
+## Key contract
 
 | Contract | Role |
 | --- | --- |
 | `JBProjectHandles` | Stores ENS name parts per `(chainId, projectId, setter)` and verifies them against ENS text records before returning a handle. |
 
-## Mental Model
+## Mental model
 
 The contract does two jobs:
 
@@ -39,12 +39,12 @@ The contract does two jobs:
 
 So this repo is not a source of canonical truth. It is a source of verifiable claims.
 
-## Read These Files First
+## Read these files first
 
 1. `src/JBProjectHandles.sol`
 2. `src/interfaces/IJBProjectHandles.sol`
 
-## Integration Traps
+## Integration traps
 
 - callers must supply the `setter` they want to trust; there is no built-in canonical setter
 - a stored handle can exist onchain and still fail verification if the ENS text record drifts
@@ -52,13 +52,13 @@ So this repo is not a source of canonical truth. It is a source of verifiable cl
 - mainnet deployment does not mean mainnet-only data; the `chainId` parameter can point at projects on other EVM chains
 - ENS liveness and resolver behavior stay outside this repo
 
-## Where State Lives
+## Where state lives
 
 - stored ENS name parts live in `JBProjectHandles`
 - project ownership still lives in `nana-core-v6`
 - final verification depends on live ENS text records
 
-## High-Signal Tests
+## High-signal tests
 
 1. `test/JBProjectHandles.t.sol`
 
@@ -82,11 +82,11 @@ Useful scripts:
 - `npm run deploy:mainnets`
 - `npm run deploy:testnets`
 
-## Deployment Notes
+## Deployment notes
 
 The production deployment target is Ethereum mainnet through `script/Deploy.s.sol`. The contract can still manage handles for many chains because `chainId` is part of the stored and verified data.
 
-## Repository Layout
+## Repository layout
 
 ```text
 src/
@@ -99,7 +99,7 @@ script/
   helpers/
 ```
 
-## Risks And Notes
+## Risks and notes
 
 - frontends that want an owner-endorsed handle will usually choose the current project owner as the trusted setter, but that policy is offchain
 - if a project changes owners, older setter records remain stored and should not automatically be treated as canonical
@@ -107,7 +107,7 @@ script/
 - malformed or non-normalized ENS labels can be stored and still never verify
 - ENS outages or resolver bugs can make a stored handle unreadable or unverifiable
 
-## For AI Agents
+## For AI agents
 
 - Describe this repo as a verifiable naming layer, not as a canonical ownership registry.
 - Be explicit that the caller chooses which setter to trust.

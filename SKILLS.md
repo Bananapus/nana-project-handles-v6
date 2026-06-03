@@ -1,11 +1,11 @@
 # Project Handles
 
-## Use This File For
+## Use this file for
 
 - Use this file when the task is about ENS handle resolution for Juicebox projects.
 - Start here when debugging why a handle is missing, empty, or resolving differently than expected.
 
-## Read This Next
+## Read this next
 
 | If you need... | Open this next |
 |---|---|
@@ -16,7 +16,7 @@
 | Deployment flow | [`script/Deploy.s.sol`](./script/Deploy.s.sol) |
 | Runtime validation | [`test/JBProjectHandles.t.sol`](./test/JBProjectHandles.t.sol) |
 
-## Repo Map
+## Repo map
 
 | Area | Where to look |
 |---|---|
@@ -29,12 +29,12 @@
 
 Permissionless ENS handle registry. It stores ENS name parts per `(chainId, projectId, setter)` and verifies handles by checking ENS text records.
 
-## Reference Files
+## Reference files
 
 - Open [`references/runtime.md`](./references/runtime.md) for handle verification semantics, ENS dependency notes, and the main invariants around storage and namehashing.
 - Open [`references/operations.md`](./references/operations.md) for change-specific validation guidance, common failure modes, and deployment assumptions.
 
-## Working Rules
+## Working rules
 
 - Start in [`src/JBProjectHandles.sol`](./src/JBProjectHandles.sol). Most of the behavior is in one contract.
 - `handleOf` is read-only verification. It queries ENS contracts, so failures there are often integration failures, not state-transition bugs.

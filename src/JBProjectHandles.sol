@@ -39,7 +39,7 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     error JBProjectHandles_NoParts(uint256 chainId, uint256 projectId, address caller);
 
     //*********************************************************************//
-    // ---------------- public constant stored properties ---------------- //
+    // ------------------------- public constants ------------------------ //
     //*********************************************************************//
 
     /// @notice The ENS registry contract address.
@@ -93,9 +93,9 @@ contract JBProjectHandles is IJBProjectHandles, ERC2771Context {
     /// @notice Point from a Juicebox project to an ENS node.
     /// @dev The `parts` ["jbx", "dao", "foo"] represents foo.dao.jbx.eth.
     /// @dev Callers must provide ENS-normalized names (lowercase, ENSIP-15). ASCII control characters, DEL, and dots
-    /// are rejected. The Unicode formatting denylist this contract used to enforce was incomplete (it missed
-    /// non-bidi invisible codepoints like U+2060, the Tags block, etc.) and lent a false sense of safety. Clients
-    /// must apply ENSIP-15 normalization off-chain before trusting a returned handle.
+    /// are rejected here; higher-byte Unicode (invisible codepoints like U+2060, the Tags block, etc.) is NOT
+    /// filtered onchain because an onchain denylist cannot be complete and a partial one is a false safety signal.
+    /// Clients must apply ENSIP-15 normalization off-chain before trusting a returned handle.
     /// @param chainId The chain ID of the network the project is on.
     /// @param projectId The ID of the project to set an ENS handle for.
     /// @param parts The parts of the ENS domain to use as the project handle, excluding the trailing .eth.

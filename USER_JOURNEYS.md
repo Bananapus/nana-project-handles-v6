@@ -1,22 +1,22 @@
 # User Journeys
 
-## Repo Purpose
+## Repo purpose
 
 This repo stores ENS name parts for a project and verifies them against the ENS `juicebox` text record at read time. It is a verification helper, not a naming authority. Clients still decide which `setter` address they trust.
 
-## Primary Actors
+## Primary actors
 
 - project owners who want a verifiable ENS handle
 - frontend and indexer clients resolving a project's handle for display
 - auditors reviewing the two-way verification model
 
-## Key Surfaces
+## Key surfaces
 
 - `JBProjectHandles.setEnsNamePartsFor(...)`: stores the caller's chosen ENS name parts for a project
 - `JBProjectHandles.handleOf(...)`: resolves the stored name and verifies it against ENS text records
 - `ensNamePartsOf(...)`: raw stored parts, useful for debugging but not itself a verification surface
 
-## Journey 1: Set An ENS Handle
+## Journey 1: Set an ENS handle
 
 **Actor:** project owner or another address that wants to publish a handle candidate.
 
@@ -46,7 +46,7 @@ This repo stores ENS name parts for a project and verifies them against the ENS 
 - the reverse record is stored
 - verification still happens only when `handleOf(...)` is called
 
-## Journey 2: Resolve A Verified Handle
+## Journey 2: Resolve a verified handle
 
 **Actor:** frontend, indexer, or bot.
 
@@ -77,7 +77,7 @@ This repo stores ENS name parts for a project and verifies them against the ENS 
 - clients get either a verified handle or an empty string
 - the contract never returns an unverified handle as if it were canonical
 
-## Journey 3: Handle Ownership Transfer
+## Journey 3: Handle ownership transfer
 
 **Actor:** new owner and clients that want the current canonical handle.
 
@@ -86,12 +86,12 @@ This repo stores ENS name parts for a project and verifies them against the ENS 
 **Preconditions**
 
 - project ownership has changed
-- clients now pass the new owner as the trusted `setter`
+- clients pass the new owner as the trusted `setter`
 
 **Main Flow**
 
 1. Project ownership changes.
-2. The old owner's handle record stays onchain, but frontends now pass the new owner's address as `setter`.
+2. The old owner's handle record stays onchain, but frontends pass the new owner's address as `setter`.
 3. `handleOf` returns `""` until the new owner stores name parts.
 4. The new owner calls `setEnsNamePartsFor(...)` and updates the ENS text record if needed.
 
@@ -105,13 +105,13 @@ This repo stores ENS name parts for a project and verifies them against the ENS 
 
 - handle resolution can move to the new owner without deleting historical storage
 
-## Trust Boundaries
+## Trust boundaries
 
 - this repo trusts ENS registry and resolver state at read time
 - clients still choose which `setter` they treat as canonical
 - project ownership still comes from core, not from this repo
 
-## Hand-Offs
+## Hand-offs
 
 - Use ENS and the relevant resolver to set the `juicebox` text record.
 - Use [nana-core-v6](../nana-core-v6/USER_JOURNEYS.md) to determine the current project owner that clients should usually pass as `setter`.

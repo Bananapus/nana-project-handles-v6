@@ -12,6 +12,7 @@ interface IJBProjectHandles {
     //*********************************************************************//
 
     /// @notice Emitted when ENS name parts are set for a project.
+    /// @param chainId The chain ID of the network the project is on.
     /// @param projectId The ID of the project whose ENS name parts were set.
     /// @param handle The formatted ENS handle string.
     /// @param parts The parts of the ENS name that were set.
