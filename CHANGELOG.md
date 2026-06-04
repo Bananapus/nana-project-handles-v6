@@ -1,70 +1,56 @@
-# Changelog
+# V5 to V6 Changelog
 
-## 0.0.25 — Raise dependency floors; document conventions
+## Scope
 
-- Raise dependency floors to the latest published versions (`@bananapus/core-v6`: `^0.0.72 → ^0.0.78`).
-- Document NatSpec, comment, and lint conventions in `STYLE_GUIDE.md`.
+This is a V5-to-V6 migration changelog, not a package release log or commit history. `nana-project-handles-v6` has no deployed V5 package counterpart in `../../v5/evm`; it is a new V6 contract package.
 
-## 0.0.24 — Bound the resolver read in `handleOf`
+## Current V6 Surface
 
-- `_textRecordOf` now reads the ENS resolver through a low-level call that (1) forwards only a bounded gas stipend (`_RESOLVER_GAS_LIMIT = 100_000`) and (2) copies at most `64 + _MAX_TEXT_RECORD_LENGTH` bytes of the response. Previously the resolver response was copied in full before the length cap was applied, so a name-owner-controlled resolver could return a huge response and force `handleOf` to run out of gas (or revert) instead of soft-failing to an empty handle. Well-behaved resolvers resolve exactly as before.
+- `JBProjectHandles`
+- `IJBProjectHandles`
 
-## 0.0.12 — Bump nana-core-v6 to ^0.0.53
+## Summary
 
-- `@bananapus/core-v6`: `0.0.39 → ^0.0.53` ([PR #145](https://github.com/Bananapus/nana-core-v6/pull/145)). The pin was previously exact (`0.0.39`); switching to caret to track minor releases.
-- All `JBRulesetMetadata` test literals patched to include `pauseCrossProjectFeeFreeInflows: false`.
+- V6 introduces a project-handle registry that maps `(chainId, projectId, setter)` to ENS name parts and verifies them through an ENS text record.
+- Handles are verified by checking the ENS `TEXT_KEY` value against the project identity, so a stored handle can resolve to an empty string when the ENS record is not valid.
+- The package is not a replacement for a V5 deployed contract. It is a new V6 integration surface for project identity.
 
-## v5 to v6
+## ABI, Event, and Error Changes
 
-### Solidity version
+- No V5 ABI exists to diff against. All project-handle ABI surface is new to V6.
+- New functions:
+  - `ENS_REGISTRY()`
+  - `TEXT_KEY()`
+  - `ensNamePartsOf(uint256,uint256,address)`
+  - `handleOf(uint256,uint256,address)`
+  - `setEnsNamePartsFor(uint256,uint256,string[])`
+- New event:
+  - `SetEnsNameParts`
+- Migration-sensitive behavior:
+  - `handleOf(...)` returns an empty string when the stored ENS name does not verify against the expected text record.
+  - callers must provide ENS-normalized name parts; the contract rejects dots and ASCII control characters.
 
-- **v5:** `pragma solidity 0.8.23`
-- **v6:** `pragma solidity 0.8.28`
+## Machine-Checked ABI Coverage
 
-### EVM target
+Generated from Foundry `out/**/*.json` artifacts, filtered to this repo's own runtime source roots and excluding tests, scripts, and dependencies.
 
-- **v5:** `evm_version = 'paris'`
-- **v6:** `evm_version = 'cancun'`
+- V5 comparison package: none; this is a new V6 runtime ABI surface.
+- Own-source ABI artifacts compared: V6 `2`, V5 `0`.
+- Contract/interface coverage: `2` added, `0` removed, `0` shared names with ABI changes, `0` shared names ABI-identical.
+- Shared-name ABI item deltas: `0` added, `0` removed, `0` modified.
 
-### Removed `_contextSuffixLength` override
+Added V6 ABI artifacts:
+- `IJBProjectHandles` from `src/interfaces/IJBProjectHandles.sol`: `5` functions, `1` events, `0` errors.
+- `JBProjectHandles` from `src/JBProjectHandles.sol`: `7` functions, `1` events, `4` errors.
 
-The v5 contract had an explicit `_contextSuffixLength()` override that just called `super._contextSuffixLength()`. This is unnecessary in OpenZeppelin v5+ and has been removed.
+Generated event/error name deltas:
+- Event names added:
+  - `SetEnsNameParts`.
+- Error names added:
+  - `JBProjectHandles_EmptyNamePart`, `JBProjectHandles_EthPartNotAllowed`, `JBProjectHandles_InvalidNamePart`, `JBProjectHandles_NoParts`.
 
-### Package name
+## Migration Notes
 
-- **v5:** `@bananapus/project-handles`
-- **v6:** `@bananapus/project-handles-v6`
-
-### Dependencies
-
-- **v5:** `@bananapus/core` (runtime dependency) + `@openzeppelin/contracts` 5.2.x
-- **v6:** `@bananapus/core-v6` 0.0.39 (devDependency only, for tests) + `@openzeppelin/contracts` 5.6.1
-
-The core dependency moved to devDependencies because the contract itself doesn't import from core — only the test file uses `JBProjects` for mocking.
-
-### Deployment
-
-- **v5:** Deployed with `CoreDeploymentLib` integration for trusted forwarder lookup.
-- **v6:** Standalone `Deploy.s.sol` with `CoreDeploymentLib` from `@bananapus/core-v6` for trusted forwarder.
-
-### Style changes
-
-- Named imports throughout (v6 convention)
-- V6 section banner ordering (external transactions before external views)
-- Named arguments for multi-arg function calls
-- V6 NatSpec style (single `/// @notice` lines)
-- V6 test naming (`test_functionName_description`)
-- Removed `oldHandle` references from tests (no legacy fallback in v6)
-
-### Functional changes
-
-- `setEnsNamePartsFor` now rejects `"eth"` as a name part (`JBProjectHandles_EthPartNotAllowed` error) and rejects control characters in name parts.
-- `handleOf` now wraps ENS registry calls in try/catch and performs a code-length check, so it returns `""` on chains without ENS instead of reverting.
-
-### Breaking ABI changes
-
-New error: `JBProjectHandles_EthPartNotAllowed`. ABIs generated from v5 will not include this error.
-
-### Indexer impact
-
-Event shape is identical. The new error only affects write-side callers.
+- Treat handles as a new optional V6 identity layer.
+- Index `SetEnsNameParts` and verify current ENS text records when displaying handles.
+- Do not assume a V5 project has an existing handle unless this V6 registry says it does.
