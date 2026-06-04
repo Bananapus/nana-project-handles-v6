@@ -15,7 +15,7 @@ Scope: the `JBProjectHandles` contract — a permissionless ENS handle registry 
 
 ---
 
-# Section A — Guarantees to Reading Clients (Frontends, Indexers, Bots)
+## Section A — Guarantees to reading clients (frontends, indexers, bots)
 
 ## A.1 Read-path semantics
 
@@ -42,7 +42,7 @@ Scope: the `JBProjectHandles` contract — a permissionless ENS handle registry 
 
 ---
 
-# Section B — Guarantees to Setters (Anyone Publishing a Candidate Handle)
+## Section B — Guarantees to setters (anyone publishing a candidate handle)
 
 ## B.1 Powers any setter retains
 
@@ -67,7 +67,7 @@ Scope: the `JBProjectHandles` contract — a permissionless ENS handle registry 
 
 ---
 
-# Section C — Per-Function Operation Inventory
+## Section C — Per-function operation inventory
 
 `JBProjectHandles` has one mutating external function, two view external functions, and a constructor. Everything else is internal.
 
@@ -118,7 +118,7 @@ Scope: the `JBProjectHandles` contract — a permissionless ENS handle registry 
 
 ---
 
-# Section D — Cross-Cutting Invariants
+## Section D — Cross-cutting invariants
 
 1. **Permissionless writes, verified reads.** Anyone can write into their own setter slot at any time, for any `(chainId, projectId)`. Reads only return non-empty when ENS independently confirms the back-pointer. The two-way handshake is the only assurance offered; the contract does not pretend to vouch for stored data.
 
@@ -132,7 +132,7 @@ Scope: the `JBProjectHandles` contract — a permissionless ENS handle registry 
 
 6. **Label validation is a real safety boundary, not cosmetic.** Dot rejection is what makes the namehash labeling unambiguous. Control-character / DEL rejection forecloses some non-printing-character spoofing. `"eth"` rejection forecloses the `foo.eth.eth` ambiguity. Weakening any of these without re-deriving the namehash assumptions is a breaking change (per ARCHITECTURE.md §"Safe Change Guide").
 
-7. **Unicode normalization is the caller's job, by contract.** The contract intentionally does not enforce ENSIP-15. A previous denylist of bidi/format codepoints was incomplete and gave a false sense of safety, so it was removed (`src/JBProjectHandles.sol:89-93` NatSpec). Clients must normalize before storing AND before trusting.
+7. **Unicode normalization is the caller's job, by contract.** The contract intentionally does not enforce ENSIP-15. It maintains no onchain bidi/format-codepoint denylist: an onchain denylist cannot be complete, and a partial one gives a false sense of safety (`src/JBProjectHandles.sol:89-93` NatSpec). Clients must normalize before storing AND before trusting.
 
 8. **No name reservation, no collision rules.** Two different addresses may store identical name parts for the same `(chainId, projectId)`. Whichever setter the client chooses to trust wins for that client. There is no "first one wins" or "project owner wins" semantic onchain.
 
@@ -142,7 +142,7 @@ Scope: the `JBProjectHandles` contract — a permissionless ENS handle registry 
 
 ---
 
-# Section E — Out-of-Scope Centralization Caveats
+## Section E — Out-of-scope centralization caveats
 
 These are **not** third-party attack vectors but are powers held outside the contract's protocol surface:
 
@@ -155,7 +155,7 @@ These are **not** third-party attack vectors but are powers held outside the con
 
 ---
 
-# Section F — Key Code References
+## Section F — Key code references
 
 - Storage key (setter isolation): `src/JBProjectHandles.sol:79, 136, 162, 182`
 - Label validation (empty, `"eth"`, control bytes, DEL, dots): `src/JBProjectHandles.sol:107-133`

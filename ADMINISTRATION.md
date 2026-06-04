@@ -1,6 +1,6 @@
 # Administration
 
-## At A Glance
+## At a glance
 
 | Item | Details |
 | --- | --- |
@@ -13,7 +13,7 @@
 
 `nana-project-handles-v6` has no privileged admin surface. The real control question is how clients choose which `setter` address they trust when resolving a handle.
 
-## Control Model
+## Control model
 
 - No owner
 - No governance
@@ -28,7 +28,7 @@
 | Anyone | No assignment | Global | Can set ENS name parts for themselves as setter |
 | Client integrator | Offchain choice | Per UI or indexer | Decides which setter to treat as authoritative |
 
-## Privileged Surfaces
+## Privileged surfaces
 
 There are no privileged functions.
 
@@ -37,18 +37,18 @@ Relevant permissionless functions are:
 - `setEnsNamePartsFor(...)`
 - `handleOf(...)`
 
-## Immutable And One-Way
+## Immutable and one-way
 
 - There is no admin delete path.
 - The trusted forwarder is constructor-immutable.
 - Records are keyed by `_msgSender()`, so changing the trust model requires new code, not an admin action.
 
-## Operational Notes
+## Operational notes
 
 - Frontends should choose the trusted setter explicitly, usually the current project owner.
 - Treat stale records as a client-resolution problem, not an onchain admin problem.
 
-## Machine Notes
+## Machine notes
 
 - Do not confuse stored handle data with canonical project ownership; the contract does not verify that relationship.
 - Treat client-side setter selection as the real trust decision.
@@ -59,12 +59,12 @@ Relevant permissionless functions are:
 - There is no owner recovery surface.
 - If a client trusted the wrong setter, fix the client or indexer logic.
 
-## Admin Boundaries
+## Admin boundaries
 
 - Nobody can curate, delete, or seize records.
 - Nobody can verify project ownership onchain through this repo; clients decide which setter matters.
 
-## Source Map
+## Source map
 
 - `src/JBProjectHandles.sol`
 - `src/interfaces/IJBProjectHandles.sol`

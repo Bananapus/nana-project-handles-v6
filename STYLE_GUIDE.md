@@ -2,7 +2,7 @@
 
 How we write Solidity and organize repos across the Juicebox V6 ecosystem. `nana-core-v6` is the gold standard — when in doubt, match what it does.
 
-## File Organization
+## File organization
 
 ```
 src/
@@ -17,7 +17,7 @@ src/
 
 One contract/interface/struct/enum per file. Name the file after the type it contains.
 
-## Pragma Versions
+## Pragma versions
 
 ```solidity
 // Contracts — pin to exact version
@@ -58,7 +58,7 @@ import {JBAccountingContext} from "./structs/JBAccountingContext.sol";
 import {JBSplit} from "./structs/JBSplit.sol";
 ```
 
-## Contract Structure
+## Contract structure
 
 Section banners divide the contract into a fixed ordering. Every contract with 50+ lines uses these banners:
 
@@ -132,7 +132,7 @@ contract JBExample is JBPermissioned, IJBExample {
 
 Functions are alphabetized within each section.
 
-## Interface Structure
+## Interface structure
 
 ```solidity
 /// @notice One-line description.
@@ -273,7 +273,7 @@ Use underscores for thousands separators:
 uint256 internal constant _FEE_HOLDING_SECONDS = 2_419_200; // 28 days
 ```
 
-## Function Calls
+## Function calls
 
 Use named arguments for all function calls with 2 or more arguments — in both `src/` and `script/`:
 
@@ -285,7 +285,7 @@ token.mint({account: beneficiary, amount: count});
 token.mint(beneficiary, count);
 ```
 
-## Error Handling
+## Error handling
 
 - Validate inputs with explicit `revert` + custom error
 - Use `try-catch` only for external calls to untrusted contracts

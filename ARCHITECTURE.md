@@ -4,11 +4,11 @@
 
 `nana-project-handles-v6` is a permissionless ENS handle registry for Juicebox projects. It stores the reverse side of the link: which ENS name a given setter has claimed for a project on a given chain.
 
-## System Overview
+## System overview
 
 `JBProjectHandles` stores ENS name parts keyed by `(chainId, projectId, setter)`, validates those parts, computes EIP-137 namehashes, and verifies handles by checking that the ENS `juicebox` text record points back to the expected `chainId:projectId`. The contract is deliberately permissionless and has no admin, pause, or upgrade layer.
 
-## Core Invariants
+## Core invariants
 
 - ENS name parts cannot be empty, cannot contain dots, cannot contain control characters, and cannot be `"eth"`.
 - `handleOf(...)` is read-only verification against ENS and must not mutate state.
@@ -23,15 +23,15 @@
 | `JBProjectHandles` | Storage, validation, ENS lookup, and verification | Main contract |
 | `IJBProjectHandles` | Interface, views, and events | External surface |
 
-## Trust Boundaries
+## Trust boundaries
 
 - The repo trusts ENS registry and resolver reads.
 - It does not verify project ownership itself; clients choose which `setter` is authoritative.
 - It does not manage ENS names or other project metadata.
 
-## Critical Flows
+## Critical flows
 
-### Set Handle
+### Set handle
 
 ```text
 caller
@@ -40,7 +40,7 @@ caller
   -> stores the parts under _msgSender()
 ```
 
-### Verify Handle
+### Verify handle
 
 ```text
 client
@@ -51,30 +51,30 @@ client
   -> returns the formatted handle if the record matches chainId:projectId
 ```
 
-## Accounting Model
+## Accounting model
 
 No economic accounting lives here. The critical state is the `(chainId, projectId, setter) -> ENS parts` mapping.
 
-## Security Model
+## Security model
 
 - Namehash and formatting logic are protocol plumbing and should stay simple.
 - The permissionless model relies on `_msgSender()` scoping. Changing the storage key would change the trust model.
 - ENS availability and resolver correctness are upstream dependencies.
 - This repo does not canonicalize labels. Non-normalized input can store successfully and later fail verification.
 
-## Safe Change Guide
+## Safe change guide
 
 - Do not weaken part validation or dot checks.
 - Keep `_msgSender()` in the storage key unless you intend to redesign the trust model.
 - If label handling changes, re-check ENS normalization assumptions and namehash compatibility together.
 - Prefer no change over clever change in namehash logic.
 
-## Canonical Checks
+## Canonical checks
 
 - part validation, overwrite behavior, and ENS record verification:
   `test/JBProjectHandles.t.sol`
 
-## Source Map
+## Source map
 
 - `src/JBProjectHandles.sol`
 - `src/interfaces/IJBProjectHandles.sol`
