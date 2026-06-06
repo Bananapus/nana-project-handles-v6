@@ -254,10 +254,13 @@ contract JBProjectHandlesProperties is Test {
         bytes32 seed,
         uint8 corruptionKind,
         uint256 corruptIndex
-    ) public {
+    )
+        public
+    {
         // Start from a valid part list, then deterministically inject one corruption (empty parts, empty part, "eth"
         // part, or a single invalid byte) so the fuzzer reaches BOTH the accept and every reject branch without ever
-        // rejecting an input. The harness `validate` is the oracle; the property is that it agrees with the live revert.
+        // rejecting an input. The harness `validate` is the oracle; the property is that it agrees with the live
+        // revert.
         string[] memory parts = _buildSafeParts(partCount, seed);
 
         // corruptionKind: 0 = none (valid), 1 = empty array, 2 = empty part, 3 = "eth" part, 4 = invalid byte.
