@@ -51,8 +51,7 @@ contract JBProjectHandlesPureHarness is JBProjectHandles {
 contract JBProjectHandlesProperties is Test {
     JBProjectHandlesPureHarness internal h;
 
-    bytes32 internal constant _ETH_NODE =
-        keccak256(abi.encodePacked(bytes32(0), keccak256(abi.encodePacked("eth"))));
+    bytes32 internal constant _ETH_NODE = keccak256(abi.encodePacked(bytes32(0), keccak256(abi.encodePacked("eth"))));
 
     function setUp() public {
         h = new JBProjectHandlesPureHarness();
@@ -91,21 +90,21 @@ contract JBProjectHandlesProperties is Test {
     // whose text record was never checked. The production code reconstructs label boundaries by scanning the joined
     // string for dots; the reference folds the raw labels. Agreement proves the reconstruction is exact.
 
-    function check_namehash_singlePart(bytes32 a) public {
+    function check_namehash_singlePart(bytes32 a) public view {
         string[] memory parts = new string[](1);
         // Avoid embedded dots/empties: a single fixed-but-symbolic label of 3 non-dot bytes.
         parts[0] = _label3(a);
         assert(h.namehash(parts) == _referenceNamehash(parts));
     }
 
-    function check_namehash_twoParts(bytes32 a, bytes32 b) public {
+    function check_namehash_twoParts(bytes32 a, bytes32 b) public view {
         string[] memory parts = new string[](2);
         parts[0] = _label3(a);
         parts[1] = _label3(b);
         assert(h.namehash(parts) == _referenceNamehash(parts));
     }
 
-    function check_namehash_threeParts(bytes32 a, bytes32 b, bytes32 c) public {
+    function check_namehash_threeParts(bytes32 a, bytes32 b, bytes32 c) public view {
         string[] memory parts = new string[](3);
         parts[0] = _label3(a);
         parts[1] = _label3(b);
@@ -124,14 +123,14 @@ contract JBProjectHandlesProperties is Test {
     // Property 2: formatHandle reverses-and-joins; reads it back correctly
     // =========================================================================
 
-    function check_formatHandle_single(bytes32 a) public {
+    function check_formatHandle_single(bytes32 a) public view {
         string[] memory parts = new string[](1);
         parts[0] = _label3(a);
         // Single part: handle == the part, no dots.
         assert(keccak256(bytes(h.formatHandle(parts))) == keccak256(bytes(parts[0])));
     }
 
-    function check_formatHandle_matchesReference_two(bytes32 a, bytes32 b) public {
+    function check_formatHandle_matchesReference_two(bytes32 a, bytes32 b) public view {
         string[] memory parts = new string[](2);
         parts[0] = _label3(a);
         parts[1] = _label3(b);
@@ -163,7 +162,7 @@ contract JBProjectHandlesProperties is Test {
     // Property 3: _slice is a faithful substring
     // =========================================================================
 
-    function check_slice_length(bytes32 a) public {
+    function check_slice_length(bytes32 a) public view {
         bytes memory input = abi.encodePacked(a);
         bytes memory out = h.slice(input, 1, 5);
         assert(out.length == 4);
@@ -225,19 +224,19 @@ contract JBProjectHandlesProperties is Test {
 
     /// @notice "eth" is rejected with the dedicated code regardless of position; any other dot-free non-empty label
     /// list of safe bytes is accepted.
-    function check_ethPart_rejected() public {
+    function check_ethPart_rejected() public view {
         string[] memory parts = new string[](2);
         parts[0] = "foo";
         parts[1] = "eth";
         assert(h.validate(parts) == 3);
     }
 
-    function check_emptyParts_rejected() public {
+    function check_emptyParts_rejected() public view {
         string[] memory parts = new string[](0);
         assert(h.validate(parts) == 1);
     }
 
-    function check_emptyPart_rejected() public {
+    function check_emptyPart_rejected() public view {
         string[] memory parts = new string[](2);
         parts[0] = "foo";
         parts[1] = "";
@@ -255,9 +254,7 @@ contract JBProjectHandlesProperties is Test {
         bytes32 seed,
         uint8 corruptionKind,
         uint256 corruptIndex
-    )
-        public
-    {
+    ) public {
         // Start from a valid part list, then deterministically inject one corruption (empty parts, empty part, "eth"
         // part, or a single invalid byte) so the fuzzer reaches BOTH the accept and every reject branch without ever
         // rejecting an input. The harness `validate` is the oracle; the property is that it agrees with the live revert.
@@ -297,14 +294,7 @@ contract JBProjectHandlesProperties is Test {
     // Property 6: store/read round-trip + setter isolation (storage fidelity)
     // =========================================================================
 
-    function testFuzz_storeReadRoundTrip(
-        uint256 chainId,
-        uint256 projectId,
-        uint256 partCount,
-        bytes32 seed
-    )
-        public
-    {
+    function testFuzz_storeReadRoundTrip(uint256 chainId, uint256 projectId, uint256 partCount, bytes32 seed) public {
         string[] memory parts = _buildSafeParts(partCount, seed);
 
         h.setEnsNamePartsFor(chainId, projectId, parts);
