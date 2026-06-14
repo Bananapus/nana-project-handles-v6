@@ -49,7 +49,11 @@ So this repo is not a source of canonical truth. It is a source of verifiable cl
 - callers must supply the `setter` they want to trust; there is no built-in canonical setter
 - a stored handle can exist onchain and still fail verification if the ENS text record drifts
 - callers should store ENS-normalized labels; non-canonical labels can store successfully but fail verification later
+- display surfaces should normalize and render handles consistently offchain; the contract verifies ENS text records but
+  does not protect users from look-alike Unicode labels in UI
 - mainnet deployment does not mean mainnet-only data; the `chainId` parameter can point at projects on other EVM chains
+- L2 or non-Ethereum records should be labeled with their project chain, not presented as Ethereum-canonical project
+  names
 - ENS liveness and resolver behavior stay outside this repo
 
 ## Where state lives
